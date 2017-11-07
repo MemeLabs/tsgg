@@ -1,12 +1,29 @@
 package main
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"log"
 
 	"github.com/jroimartin/gocui"
 )
 
+type config struct {
+	DGGKey string `json:"dgg_key"`
+}
+
 func main() {
+	file, err := ioutil.ReadFile("config.json")
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	var config config
+	json.Unmarshal(file, &config)
+	if config.DGGKey == "" {
+		log.Fatalln("malformed configuration file")
+	}
+
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
 		log.Fatalln(err)
@@ -19,42 +36,21 @@ func main() {
 		log.Panicln(err)
 	}
 
+	chat := newChat(&config)
+	defer chat.connection.Close()
+
+	go chat.listen()
+
+	go func() {
+		for {
+			message := <-chat.messages
+			renderMessage(g, message)
+
+		}
+	}()
+
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Fatalln(err)
 	}
-
-	// interrupt := make(chan os.Signal, 1)
-	// signal.Notify(interrupt, os.Interrupt)
-
-	// u := url.URL{Scheme: "wss", Host: "www.destiny.gg", Path: "/ws"}
-	// h := make(http.Header, 0)
-	// h.Set("Cookie", "'authtoken=")
-
-	// c, _, err := websocket.DefaultDialer.Dial(u.String(), h)
-	// if err != nil {
-	// 	log.Fatal("dial:", err)
-	// }
-	// defer c.Close()
-
-	// go func() {
-	// 	defer c.Close()
-	// 	for {
-	// 		_, message, err := c.ReadMessage()
-
-	// 		if err != nil {
-	// 			log.Println("read:", err)
-	// 			return
-	// 		}
-	// 		log.Printf("recv: %s", message)
-	// 	}
-	// }()
-
-	// for {
-	// 	select {
-	// 	case <-interrupt:
-	// 		log.Println("got interrupt")
-	// 		return
-	// 	}
-	// }
 
 }

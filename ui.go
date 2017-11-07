@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"log"
+
 	"github.com/jroimartin/gocui"
 )
 
@@ -43,4 +46,17 @@ func layout(g *gocui.Gui) error {
 
 func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
+}
+
+func renderMessage(g *gocui.Gui, m chatMessage) {
+	g.Update(func(g *gocui.Gui) error {
+		messagesView, err := g.View("messages")
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		formattedMessage := fmt.Sprintf("[%d] %s: %s", m.Timestamp, m.Nick, m.Data)
+		fmt.Fprintln(messagesView, formattedMessage)
+		return nil
+	})
 }
