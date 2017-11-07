@@ -36,6 +36,11 @@ type chatMessage struct {
 	Data      string   `json:"data"`
 }
 
+type broadcastMessage struct {
+	Timestamp int64  `json:"timestamp"`
+	Data      string `json:"data"`
+}
+
 var socketMessageRegex = regexp.MustCompile(`(\w+)\s(.+)`)
 
 func newChat(config *config, g *gocui.Gui) *chat {
@@ -118,6 +123,8 @@ func (c *chat) listen() {
 				renderUsers(c.g, c.userList)
 			}
 
+		case "BROADCAST":
+			// handle broadcast
 		}
 
 	}
