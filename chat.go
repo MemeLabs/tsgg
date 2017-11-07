@@ -19,7 +19,7 @@ type chat struct {
 type chatMessage struct {
 	Nick      string   `json:"nick"`
 	Features  []string `json:"features"`
-	Timestamp int      `json:"timestamp"`
+	Timestamp int64    `json:"timestamp"`
 	Data      string   `json:"data"`
 }
 
