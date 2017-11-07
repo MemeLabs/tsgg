@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/gorilla/websocket"
 	"github.com/jroimartin/gocui"
@@ -35,7 +36,7 @@ type chatMessage struct {
 	Data      string   `json:"data"`
 }
 
-var socketMessageRegex = regexp.MustCompile(`(\w+)\s(\{.+\})`)
+var socketMessageRegex = regexp.MustCompile(`(\w+)\s(.+)`)
 
 func newChat(config *config, g *gocui.Gui) *chat {
 	u := url.URL{Scheme: "wss", Host: "www.destiny.gg", Path: "/ws"}
@@ -81,6 +82,51 @@ func (c *chat) listen() {
 			json.Unmarshal([]byte(match[2]), &chatMessage)
 
 			renderMessage(c.g, &chatMessage)
+		case "ERR":
+			renderError(c.g, match[2])
+		case "QUIT":
+			var quitter user
+			json.Unmarshal([]byte(match[2]), &quitter)
+
+			index := -1
+			for i, u := range c.userList.Users {
+				if strings.EqualFold(quitter.Nick, u.Nick) {
+					index = i
+				}
+			}
+
+			if index > -1 {
+				c.userList.Users = append(c.userList.Users[:index], c.userList.Users[index+1:]...)
+				c.userList.Count--
+				renderUsers(c.g, c.userList)
+			}
+
+		case "JOIN":
+			var joiner user
+			json.Unmarshal([]byte(match[2]), &joiner)
+
+			index := -1
+			for i, u := range c.userList.Users {
+				if strings.EqualFold(joiner.Nick, u.Nick) {
+					index = i
+				}
+			}
+
+			if index == -1 {
+				c.userList.Users = append(c.userList.Users, joiner)
+				c.userList.Count++
+				renderUsers(c.g, c.userList)
+			}
+
 		}
+
+	}
+}
+
+func (c *chat) sendMessage(message string) {
+	message = fmt.Sprintf("MSG {\"data\":\"%s\"}", message)
+	err := c.connection.WriteMessage(websocket.TextMessage, []byte(message))
+	if err != nil {
+		log.Println(err)
 	}
 }

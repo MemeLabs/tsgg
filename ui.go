@@ -112,6 +112,19 @@ func renderMessage(g *gocui.Gui, m *chatMessage) {
 	})
 }
 
+func renderError(g *gocui.Gui, errorString string) {
+	g.Update(func(g *gocui.Gui) error {
+		messageView, err := g.View("messages")
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		errorMessage := fmt.Sprintf("\u001b[31m*Error sending message: %s*%s", errorString, colorReset)
+		fmt.Fprintln(messageView, errorMessage)
+		return nil
+	})
+}
+
 func renderUsers(g *gocui.Gui, u *userList) {
 	g.Update(func(g *gocui.Gui) error {
 		userView, err := g.View("users")

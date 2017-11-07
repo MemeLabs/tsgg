@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"strings"
 
 	"github.com/jroimartin/gocui"
 )
@@ -38,6 +39,22 @@ func main() {
 
 	chat := newChat(&config, g)
 	defer chat.connection.Close()
+
+	err = g.SetKeybinding("input", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		chat.sendMessage(strings.TrimSpace(v.Buffer()))
+		g.Update(func(g *gocui.Gui) error {
+			v.Clear()
+			v.SetCursor(0, 0)
+			v.SetOrigin(0, 0)
+			return nil
+		})
+
+		return nil
+	})
+
+	if err != nil {
+		log.Panicln(err)
+	}
 
 	go chat.listen()
 
