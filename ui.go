@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -31,6 +32,8 @@ var flairs = []map[string]string{
 	{"flair": "vip", "badge": "vip", "color": "\u001b[32m"},
 	{"flair": "admin", "badge": "@", "color": "\u001b[31m"},
 }
+
+const colorReset = "\u001b[0m"
 
 func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
@@ -63,7 +66,7 @@ func layout(g *gocui.Gui) error {
 		}
 		users.Title = " users: "
 		users.Autoscroll = false
-		users.Wrap = true
+		users.Wrap = false
 	}
 
 	return nil
@@ -73,7 +76,7 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
 }
 
-func renderMessage(g *gocui.Gui, m chatMessage) {
+func renderMessage(g *gocui.Gui, m *chatMessage) {
 	g.Update(func(g *gocui.Gui) error {
 		messagesView, err := g.View("messages")
 		if err != nil {
@@ -89,18 +92,18 @@ func renderMessage(g *gocui.Gui, m chatMessage) {
 		for _, flair := range flairs {
 			if contains(m.Features, flair["flair"]) {
 				taggedNick = fmt.Sprintf("[%s]%s", flair["badge"], taggedNick)
-				coloredNick = fmt.Sprintf("%s %s \u001b[0m", flair["color"], taggedNick)
+				coloredNick = fmt.Sprintf("%s %s %s", flair["color"], taggedNick, colorReset)
 			}
 		}
 
 		// why not
 		if m.Nick == "Polecat" {
 			taggedNick = fmt.Sprintf("[*]%s", taggedNick)
-			coloredNick = fmt.Sprintf("\u001b[36m %s \u001b[0m", taggedNick)
+			coloredNick = fmt.Sprintf("\u001b[36m %s %s", taggedNick, colorReset)
 		}
 
 		if coloredNick == "" {
-			coloredNick = fmt.Sprintf("\u001b[0m %s \u001b[0m", taggedNick)
+			coloredNick = fmt.Sprintf("%s %s %s", colorReset, taggedNick, colorReset)
 		}
 
 		formattedMessage := fmt.Sprintf("[%s] %s: %s", formattedDate, coloredNick, m.Data)
@@ -109,11 +112,68 @@ func renderMessage(g *gocui.Gui, m chatMessage) {
 	})
 }
 
+func renderUsers(g *gocui.Gui, u *userList) {
+	g.Update(func(g *gocui.Gui) error {
+		userView, err := g.View("users")
+		if err != nil {
+			log.Fatalln(err)
+		}
+
+		userView.Title = fmt.Sprintf("%d users:", u.Count)
+		sortUsers(u.Users)
+
+		var users string
+		for _, u := range u.Users {
+			_, flair := highestFlair(u)
+			color := colorReset
+
+			if flair != nil {
+				color = flair["color"]
+			}
+			users += fmt.Sprintf("%s%s%s\n", color, u.Nick, colorReset)
+		}
+
+		fmt.Fprintln(userView, users)
+		return nil
+	})
+}
+
 func contains(s []string, q string) bool {
-	for _, element := range s {
-		if strings.EqualFold(q, element) {
-			return true
+	return indexOf(s, q) > -1
+}
+
+func indexOf(s []string, e string) int {
+	for i, element := range s {
+		if strings.EqualFold(element, e) {
+			return i
 		}
 	}
-	return false
+
+	return -1
+}
+
+func sortUsers(u []user) {
+	sort.SliceStable(u, func(i, j int) bool {
+		iUser := u[i]
+		jUser := u[j]
+
+		iIndex, _ := highestFlair(iUser)
+		jIndex, _ := highestFlair(jUser)
+
+		return iIndex > jIndex
+	})
+}
+
+func highestFlair(u user) (int, map[string]string) {
+	index := -1
+	var highestFlair map[string]string
+
+	for i, flair := range flairs {
+		if contains(u.Features, flair["flair"]) {
+			index = i
+			highestFlair = flair
+		}
+	}
+
+	return index, highestFlair
 }

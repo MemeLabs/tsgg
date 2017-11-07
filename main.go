@@ -36,18 +36,10 @@ func main() {
 		log.Panicln(err)
 	}
 
-	chat := newChat(&config)
+	chat := newChat(&config, g)
 	defer chat.connection.Close()
 
 	go chat.listen()
-
-	go func() {
-		for {
-			message := <-chat.messages
-			renderMessage(g, message)
-
-		}
-	}()
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Fatalln(err)

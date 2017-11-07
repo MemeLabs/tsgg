@@ -9,11 +9,23 @@ import (
 	"regexp"
 
 	"github.com/gorilla/websocket"
+	"github.com/jroimartin/gocui"
 )
 
 type chat struct {
 	connection *websocket.Conn
-	messages   chan chatMessage
+	g          *gocui.Gui
+	userList   *userList
+}
+
+type userList struct {
+	Count int    `json:"connectioncount"`
+	Users []user `json:"users"`
+}
+
+type user struct {
+	Nick     string   `json:"nick"`
+	Features []string `json:"features"`
 }
 
 type chatMessage struct {
@@ -25,7 +37,7 @@ type chatMessage struct {
 
 var socketMessageRegex = regexp.MustCompile(`(\w+)\s(\{.+\})`)
 
-func newChat(config *config) *chat {
+func newChat(config *config, g *gocui.Gui) *chat {
 	u := url.URL{Scheme: "wss", Host: "www.destiny.gg", Path: "/ws"}
 	h := make(http.Header, 0)
 	h.Set("Cookie", fmt.Sprintf("authtoken=%s", config.DGGKey))
@@ -36,13 +48,14 @@ func newChat(config *config) *chat {
 
 	chat := &chat{
 		connection: c,
-		messages:   make(chan chatMessage),
+		g:          g,
 	}
 
 	return chat
 }
 
 func (c *chat) listen() {
+	defer c.connection.Close()
 	for {
 		_, message, err := c.connection.ReadMessage()
 		if err != nil {
@@ -58,11 +71,16 @@ func (c *chat) listen() {
 		}
 
 		switch match[1] {
+		case "NAMES":
+			var userList userList
+			json.Unmarshal([]byte(match[2]), &userList)
+			c.userList = &userList
+			renderUsers(c.g, &userList)
 		case "MSG":
 			var chatMessage chatMessage
 			json.Unmarshal([]byte(match[2]), &chatMessage)
 
-			c.messages <- chatMessage
+			renderMessage(c.g, &chatMessage)
 		}
 	}
 }
