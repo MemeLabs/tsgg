@@ -13,10 +13,14 @@ import (
 	"github.com/jroimartin/gocui"
 )
 
+const maxChatHistory = 10
+
 type chat struct {
-	connection *websocket.Conn
-	g          *gocui.Gui
-	userList   *userList
+	connection     *websocket.Conn
+	g              *gocui.Gui
+	userList       *userList
+	messageHistory []string
+	historyIndex   int
 }
 
 type userList struct {
@@ -53,8 +57,10 @@ func newChat(config *config, g *gocui.Gui) *chat {
 	}
 
 	chat := &chat{
-		connection: c,
-		g:          g,
+		connection:     c,
+		g:              g,
+		messageHistory: []string{},
+		historyIndex:   -1,
 	}
 
 	return chat
@@ -131,9 +137,16 @@ func (c *chat) listen() {
 }
 
 func (c *chat) sendMessage(message string) {
-	message = fmt.Sprintf("MSG {\"data\":\"%s\"}", message)
-	err := c.connection.WriteMessage(websocket.TextMessage, []byte(message))
+	// TODO commands
+	jsonMessage := fmt.Sprintf("MSG {\"data\":\"%s\"}", message)
+	err := c.connection.WriteMessage(websocket.TextMessage, []byte(jsonMessage))
 	if err != nil {
 		log.Println(err)
 	}
+	if len(c.messageHistory) > (maxChatHistory - 1) {
+		c.messageHistory = append([]string{message}, c.messageHistory[:(maxChatHistory-1)]...)
+	} else {
+		c.messageHistory = append([]string{message}, c.messageHistory...)
+	}
+	c.historyIndex = -1
 }

@@ -41,6 +41,20 @@ func main() {
 	chat := newChat(&config, g)
 	defer chat.connection.Close()
 
+	if err := g.SetKeybinding("input", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		historyUp(g, v, chat)
+		return nil
+	}); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("input", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		historyDown(g, v, chat)
+		return nil
+	}); err != nil {
+		log.Panicln(err)
+	}
+
 	err = g.SetKeybinding("input", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		chat.sendMessage(strings.TrimSpace(v.Buffer()))
 		g.Update(func(g *gocui.Gui) error {

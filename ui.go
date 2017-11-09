@@ -190,3 +190,28 @@ func highestFlair(u user) (int, map[string]string) {
 
 	return index, highestFlair
 }
+
+func historyUp(g *gocui.Gui, v *gocui.View, chat *chat) error {
+	if chat.historyIndex > maxChatHistory-2 || (chat.historyIndex+1) > len(chat.messageHistory)-1 {
+		return nil
+	}
+	chat.historyIndex++
+	v.Clear()
+	v.SetCursor(0, 0)
+	v.Write([]byte(chat.messageHistory[chat.historyIndex]))
+	v.MoveCursor(len(chat.messageHistory[chat.historyIndex]), 0, true)
+	return nil
+}
+
+func historyDown(g *gocui.Gui, v *gocui.View, chat *chat) error {
+	if chat.historyIndex < 1 {
+		return nil
+	}
+
+	chat.historyIndex--
+	v.Clear()
+	v.SetCursor(0, 0)
+	v.Write([]byte(chat.messageHistory[chat.historyIndex]))
+	v.MoveCursor(len(chat.messageHistory[chat.historyIndex]), 0, true)
+	return nil
+}
