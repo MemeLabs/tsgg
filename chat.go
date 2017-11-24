@@ -48,10 +48,17 @@ type broadcastMessage struct {
 var socketMessageRegex = regexp.MustCompile(`(\w+)\s(.+)`)
 
 func newChat(config *config, g *gocui.Gui) *chat {
-	u := url.URL{Scheme: "wss", Host: "www.destiny.gg", Path: "/ws"}
+	var u string
+	if config.CustomURL == "" {
+		url := url.URL{Scheme: "wss", Host: "www.destiny.gg", Path: "/ws"}
+		u = url.String()
+	} else {
+		u = config.CustomURL
+	}
+
 	h := make(http.Header, 0)
 	h.Set("Cookie", fmt.Sprintf("authtoken=%s", config.DGGKey))
-	c, _, err := websocket.DefaultDialer.Dial(u.String(), h)
+	c, _, err := websocket.DefaultDialer.Dial(u, h)
 	if err != nil {
 		log.Fatalln(err)
 	}

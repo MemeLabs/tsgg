@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"io/ioutil"
 	"log"
 	"strings"
@@ -10,11 +11,20 @@ import (
 )
 
 type config struct {
-	DGGKey string `json:"dgg_key"`
+	DGGKey    string `json:"dgg_key"`
+	CustomURL string `json:"custom_url"`
+}
+
+var configFile string
+
+func init() {
+	flag.StringVar(&configFile, "config", "config.json", "location of config file to be used")
 }
 
 func main() {
-	file, err := ioutil.ReadFile("config.json")
+	flag.Parse()
+
+	file, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		log.Fatalln(err)
 	}
