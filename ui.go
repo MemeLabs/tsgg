@@ -146,6 +146,7 @@ func renderUsers(g *gocui.Gui, u *userList) {
 			users += fmt.Sprintf("%s%s%s\n", color, u.Nick, colorReset)
 		}
 
+		userView.Clear()
 		fmt.Fprintln(userView, users)
 		return nil
 	})
