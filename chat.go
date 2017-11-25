@@ -142,12 +142,13 @@ func (c *chat) listen() {
 	}
 }
 
-func (c *chat) sendMessage(message string) {
+func (c *chat) sendMessage(message string, g *gocui.Gui) {
 	// TODO commands
 	jsonMessage := fmt.Sprintf("MSG {\"data\":\"%s\"}", message)
 	err := c.connection.WriteMessage(websocket.TextMessage, []byte(jsonMessage))
 	if err != nil {
-		log.Println(err)
+		renderError(g, err.Error())
+		return
 	}
 	if len(c.messageHistory) > (maxChatHistory - 1) {
 		c.messageHistory = append([]string{message}, c.messageHistory[:(maxChatHistory-1)]...)

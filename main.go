@@ -71,7 +71,7 @@ func main() {
 	}
 
 	err = g.SetKeybinding("input", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		chat.sendMessage(strings.TrimSpace(v.Buffer()))
+		chat.sendMessage(strings.TrimSpace(v.Buffer()), g)
 		g.Update(func(g *gocui.Gui) error {
 			v.Clear()
 			v.SetCursor(0, 0)
