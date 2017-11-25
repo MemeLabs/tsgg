@@ -1,4 +1,4 @@
 {
     "dgg_key": "key here",
-    "custom_url": "ws://localhost:1337" // don't specify a custom url to use the default dgg endpoint 
+    "custom_url": "wss://www.destiny.gg/ws"
 }

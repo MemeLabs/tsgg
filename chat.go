@@ -47,7 +47,7 @@ type broadcastMessage struct {
 
 var socketMessageRegex = regexp.MustCompile(`(\w+)\s(.+)`)
 
-func newChat(config *config, g *gocui.Gui) *chat {
+func newChat(config *config, g *gocui.Gui) (*chat, error) {
 	var u string
 	if config.CustomURL == "" {
 		url := url.URL{Scheme: "wss", Host: "www.destiny.gg", Path: "/ws"}
@@ -56,11 +56,11 @@ func newChat(config *config, g *gocui.Gui) *chat {
 		u = config.CustomURL
 	}
 
-	h := make(http.Header, 0)
+	h := http.Header{}
 	h.Set("Cookie", fmt.Sprintf("authtoken=%s", config.DGGKey))
 	c, _, err := websocket.DefaultDialer.Dial(u, h)
 	if err != nil {
-		log.Fatalln(err)
+		return &chat{}, err
 	}
 
 	chat := &chat{
@@ -70,7 +70,7 @@ func newChat(config *config, g *gocui.Gui) *chat {
 		historyIndex:   -1,
 	}
 
-	return chat
+	return chat, nil
 }
 
 func (c *chat) listen() {
@@ -85,7 +85,6 @@ func (c *chat) listen() {
 
 		match := socketMessageRegex.FindStringSubmatch(m)
 		if len(match) != 3 {
-			log.Printf("Unknown message format: '%s'\n", message)
 			return
 		}
 

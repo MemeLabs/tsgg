@@ -45,10 +45,15 @@ func main() {
 	g.Mouse = false
 
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
-		log.Panicln(err)
+		log.Fatalln(err)
 	}
 
-	chat := newChat(&config, g)
+	chat, err := newChat(&config, g)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
 	defer chat.connection.Close()
 
 	if err := g.SetKeybinding("input", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
