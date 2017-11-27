@@ -1,4 +1,5 @@
 {
     "dgg_key": "key here",
-    "custom_url": "wss://www.destiny.gg/ws"
+    "custom_url": "wss://www.destiny.gg/ws",
+    "username": "bob"
 }
