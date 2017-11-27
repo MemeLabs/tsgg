@@ -136,7 +136,10 @@ func (c *chat) listen() {
 			}
 
 		case "BROADCAST":
-			// handle broadcast
+			var broadcastMessage broadcastMessage
+			json.Unmarshal([]byte(match[2]), &broadcastMessage)
+
+			renderBroadcast(c.g, &broadcastMessage)
 		}
 
 	}

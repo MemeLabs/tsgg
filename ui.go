@@ -113,6 +113,23 @@ func renderMessage(g *gocui.Gui, m *chatMessage) {
 	})
 }
 
+func renderBroadcast(g *gocui.Gui, m *broadcastMessage) {
+	g.Update(func(g *gocui.Gui) error {
+		messagesView, err := g.View("messages")
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		tm := time.Unix(m.Timestamp/1000, 0)
+		formattedDate := tm.Format(time.Kitchen)
+
+		formattedMessage := fmt.Sprintf("\u001b[33;1m[%s] %s: %s %s", formattedDate, "Broadcast", m.Data, colorReset)
+		fmt.Fprintln(messagesView, formattedMessage)
+		return nil
+	})
+}
+
 func renderError(g *gocui.Gui, errorString string) {
 	g.Update(func(g *gocui.Gui) error {
 		messageView, err := g.View("messages")
