@@ -28,6 +28,7 @@ var flairs = []map[string]string{
 	{"flair": "flair1", "badge": "t2", "color": "\u001b[34;1m"},
 	{"flair": "flair3", "badge": "t3", "color": "\u001b[34m"},
 	{"flair": "flair8", "badge": "t4", "color": "\u001b[35m"},
+	{"flair": "flair11", "badge": "bot2", "color": "\u001b[30;1m"},
 	{"flair": "bot", "badge": "bot", "color": "\u001b[33m"},
 	{"flair": "vip", "badge": "vip", "color": "\u001b[32m"},
 	{"flair": "admin", "badge": "@", "color": "\u001b[31m"},
@@ -130,7 +131,7 @@ func (c *chat) renderBroadcast(m *broadcastMessage) {
 		tm := time.Unix(m.Timestamp/1000, 0)
 		formattedDate := tm.Format(time.Kitchen)
 
-		formattedMessage := fmt.Sprintf("\u001b[33;1m [%s] %s: %s %s", formattedDate, "Broadcast", m.Data, colorReset)
+		formattedMessage := fmt.Sprintf("\u001b[33;1m[%s] %s: %s %s", formattedDate, " Broadcast", m.Data, colorReset)
 		fmt.Fprintln(messagesView, formattedMessage)
 		return nil
 	})
