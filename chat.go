@@ -21,6 +21,7 @@ type chat struct {
 	userList       *userList
 	messageHistory []string
 	historyIndex   int
+	username       string
 }
 
 type userList struct {
@@ -68,6 +69,7 @@ func newChat(config *config, g *gocui.Gui) (*chat, error) {
 		g:              g,
 		messageHistory: []string{},
 		historyIndex:   -1,
+		username:       config.Username,
 	}
 
 	return chat, nil
@@ -93,14 +95,14 @@ func (c *chat) listen() {
 			var userList userList
 			json.Unmarshal([]byte(match[2]), &userList)
 			c.userList = &userList
-			renderUsers(c.g, &userList)
+			c.renderUsers(&userList)
 		case "MSG":
 			var chatMessage chatMessage
 			json.Unmarshal([]byte(match[2]), &chatMessage)
 
-			renderMessage(c.g, &chatMessage)
+			c.renderMessage(&chatMessage)
 		case "ERR":
-			renderError(c.g, match[2])
+			c.renderError(match[2])
 		case "QUIT":
 			var quitter user
 			json.Unmarshal([]byte(match[2]), &quitter)
@@ -115,7 +117,7 @@ func (c *chat) listen() {
 			if index > -1 {
 				c.userList.Users = append(c.userList.Users[:index], c.userList.Users[index+1:]...)
 				c.userList.Count--
-				renderUsers(c.g, c.userList)
+				c.renderUsers(c.userList)
 			}
 
 		case "JOIN":
@@ -132,11 +134,14 @@ func (c *chat) listen() {
 			if index == -1 {
 				c.userList.Users = append(c.userList.Users, joiner)
 				c.userList.Count++
-				renderUsers(c.g, c.userList)
+				c.renderUsers(c.userList)
 			}
 
 		case "BROADCAST":
-			// handle broadcast
+			var broadcastMessage broadcastMessage
+			json.Unmarshal([]byte(match[2]), &broadcastMessage)
+
+			c.renderBroadcast(&broadcastMessage)
 		}
 
 	}
@@ -147,7 +152,7 @@ func (c *chat) sendMessage(message string, g *gocui.Gui) {
 	jsonMessage := fmt.Sprintf("MSG {\"data\":\"%s\"}", message)
 	err := c.connection.WriteMessage(websocket.TextMessage, []byte(jsonMessage))
 	if err != nil {
-		renderError(g, err.Error())
+		c.renderError(err.Error())
 		return
 	}
 	if len(c.messageHistory) > (maxChatHistory - 1) {

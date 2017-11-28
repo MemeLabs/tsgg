@@ -28,6 +28,7 @@ var flairs = []map[string]string{
 	{"flair": "flair1", "badge": "t2", "color": "\u001b[34;1m"},
 	{"flair": "flair3", "badge": "t3", "color": "\u001b[34m"},
 	{"flair": "flair8", "badge": "t4", "color": "\u001b[35m"},
+	{"flair": "flair11", "badge": "bot2", "color": "\u001b[30;1m"},
 	{"flair": "bot", "badge": "bot", "color": "\u001b[33m"},
 	{"flair": "vip", "badge": "vip", "color": "\u001b[32m"},
 	{"flair": "admin", "badge": "@", "color": "\u001b[31m"},
@@ -76,8 +77,8 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
 }
 
-func renderMessage(g *gocui.Gui, m *chatMessage) {
-	g.Update(func(g *gocui.Gui) error {
+func (c *chat) renderMessage(m *chatMessage) {
+	c.g.Update(func(g *gocui.Gui) error {
 		messagesView, err := g.View("messages")
 		if err != nil {
 			log.Println(err)
@@ -107,14 +108,37 @@ func renderMessage(g *gocui.Gui, m *chatMessage) {
 			coloredNick = fmt.Sprintf("%s %s %s", colorReset, taggedNick, colorReset)
 		}
 
-		formattedMessage := fmt.Sprintf("[%s] %s: %s", formattedDate, coloredNick, m.Data)
+		formattedData := m.Data
+		if c.username != "" && strings.Contains(strings.ToLower(m.Data), strings.ToLower(c.username)) {
+			formattedData = fmt.Sprintf("\u001b[46;1m%s %s", m.Data, colorReset)
+		}
+
+		formattedMessage := fmt.Sprintf("[%s] %s: %s", formattedDate, coloredNick, formattedData)
+
 		fmt.Fprintln(messagesView, formattedMessage)
 		return nil
 	})
 }
 
-func renderError(g *gocui.Gui, errorString string) {
-	g.Update(func(g *gocui.Gui) error {
+func (c *chat) renderBroadcast(m *broadcastMessage) {
+	c.g.Update(func(g *gocui.Gui) error {
+		messagesView, err := g.View("messages")
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		tm := time.Unix(m.Timestamp/1000, 0)
+		formattedDate := tm.Format(time.Kitchen)
+
+		formattedMessage := fmt.Sprintf("\u001b[33;1m[%s] %s: %s %s", formattedDate, " Broadcast", m.Data, colorReset)
+		fmt.Fprintln(messagesView, formattedMessage)
+		return nil
+	})
+}
+
+func (c *chat) renderError(errorString string) {
+	c.g.Update(func(g *gocui.Gui) error {
 		messageView, err := g.View("messages")
 		if err != nil {
 			log.Println(err)
@@ -127,8 +151,8 @@ func renderError(g *gocui.Gui, errorString string) {
 	})
 }
 
-func renderUsers(g *gocui.Gui, u *userList) {
-	g.Update(func(g *gocui.Gui) error {
+func (c *chat) renderUsers(u *userList) {
+	c.g.Update(func(g *gocui.Gui) error {
 		userView, err := g.View("users")
 		if err != nil {
 			log.Println(err)

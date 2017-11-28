@@ -13,6 +13,7 @@ import (
 type config struct {
 	DGGKey    string `json:"dgg_key"`
 	CustomURL string `json:"custom_url"`
+	Username  string `json:"username"`
 }
 
 var configFile string
