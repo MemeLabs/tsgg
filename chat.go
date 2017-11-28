@@ -3,11 +3,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/jroimartin/gocui"
@@ -16,6 +16,7 @@ import (
 const maxChatHistory = 10
 
 type chat struct {
+	config         *config
 	connection     *websocket.Conn
 	g              *gocui.Gui
 	userList       *userList
@@ -49,45 +50,79 @@ type broadcastMessage struct {
 var socketMessageRegex = regexp.MustCompile(`(\w+)\s(.+)`)
 
 func newChat(config *config, g *gocui.Gui) (*chat, error) {
-	var u string
-	if config.CustomURL == "" {
-		url := url.URL{Scheme: "wss", Host: "www.destiny.gg", Path: "/ws"}
-		u = url.String()
-	} else {
-		u = config.CustomURL
-	}
-
-	h := http.Header{}
-	h.Set("Cookie", fmt.Sprintf("authtoken=%s", config.DGGKey))
-	c, _, err := websocket.DefaultDialer.Dial(u, h)
-	if err != nil {
-		return &chat{}, err
-	}
-
 	chat := &chat{
-		connection:     c,
+		config:         config,
 		g:              g,
 		messageHistory: []string{},
 		historyIndex:   -1,
 		username:       config.Username,
 	}
 
-	return chat, nil
+	err := chat.connect()
+	return chat, err
+}
+
+func (c *chat) connect() error {
+	var u string
+	if c.config.CustomURL == "" {
+		url := url.URL{Scheme: "wss", Host: "www.destiny.gg", Path: "/ws"}
+		u = url.String()
+	} else {
+		u = c.config.CustomURL
+	}
+
+	h := http.Header{}
+	h.Set("Cookie", fmt.Sprintf("authtoken=%s", c.config.DGGKey))
+	var err error
+	c.connection, _, err = websocket.DefaultDialer.Dial(u, h)
+	return err
+}
+
+func (c *chat) reconnect() {
+	if c.connection != nil {
+		return
+	}
+
+	var timeout = 2
+	for {
+		c.renderError(fmt.Sprintf("reconnecting in %d seconds...", timeout))
+		time.Sleep(time.Second * time.Duration(timeout))
+		err := c.connect()
+		if err != nil {
+			c.renderError(fmt.Sprintf("failed establishing connection to the chat"))
+			if timeout > 60 {
+				timeout = 1
+			}
+			timeout = timeout * 2
+			continue
+		}
+		return
+	}
 }
 
 func (c *chat) listen() {
 	defer c.connection.Close()
 	for {
+		err := c.connection.SetReadDeadline(time.Now().Add(time.Minute * 3))
+		if err != nil {
+			c.renderError("exceeded ReadDeadline")
+			c.reconnect()
+			time.Sleep(3 * time.Second)
+			continue
+		}
 		_, message, err := c.connection.ReadMessage()
 		if err != nil {
-			log.Println(err)
+			c.renderError("error getting message")
+			c.reconnect()
+			time.Sleep(3 * time.Second)
+			continue
 		}
 
 		m := string(message[:])
 
 		match := socketMessageRegex.FindStringSubmatch(m)
 		if len(match) != 3 {
-			return
+			continue
 		}
 
 		switch match[1] {
@@ -95,7 +130,7 @@ func (c *chat) listen() {
 			var userList userList
 			json.Unmarshal([]byte(match[2]), &userList)
 			c.userList = &userList
-			c.renderUsers(&userList)
+			c.renderUsers(userList)
 		case "MSG":
 			var chatMessage chatMessage
 			json.Unmarshal([]byte(match[2]), &chatMessage)
@@ -117,7 +152,7 @@ func (c *chat) listen() {
 			if index > -1 {
 				c.userList.Users = append(c.userList.Users[:index], c.userList.Users[index+1:]...)
 				c.userList.Count--
-				c.renderUsers(c.userList)
+				c.renderUsers(*c.userList)
 			}
 
 		case "JOIN":
@@ -134,7 +169,7 @@ func (c *chat) listen() {
 			if index == -1 {
 				c.userList.Users = append(c.userList.Users, joiner)
 				c.userList.Count++
-				c.renderUsers(c.userList)
+				c.renderUsers(*c.userList)
 			}
 
 		case "BROADCAST":
@@ -148,11 +183,19 @@ func (c *chat) listen() {
 }
 
 func (c *chat) sendMessage(message string, g *gocui.Gui) {
-	// TODO commands
-	jsonMessage := fmt.Sprintf("MSG {\"data\":\"%s\"}", message)
-	err := c.connection.WriteMessage(websocket.TextMessage, []byte(jsonMessage))
+	err := c.connection.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	if err != nil {
 		c.renderError(err.Error())
+		c.reconnect()
+		return
+	}
+
+	// TODO commands
+	jsonMessage := fmt.Sprintf("MSG {\"data\":\"%s\"}", message)
+	err = c.connection.WriteMessage(websocket.TextMessage, []byte(jsonMessage))
+	if err != nil {
+		c.renderError(err.Error())
+		c.reconnect()
 		return
 	}
 	if len(c.messageHistory) > (maxChatHistory - 1) {
