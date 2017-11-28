@@ -137,6 +137,24 @@ func (c *chat) renderBroadcast(m *broadcastMessage) {
 	})
 }
 
+func (c *chat) renderPrivateMessage(m *privatMessage) {
+	c.g.Update(func(g *gocui.Gui) error {
+		messagesView, err := g.View("messages")
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		tm := time.Unix(m.Timestamp/1000, 0)
+		formattedDate := tm.Format(time.Kitchen)
+
+		formattedMessage := fmt.Sprintf("[%s]  \u001b[37;1m\u001b[1m[Whisper]%s: %s %s", formattedDate, m.Nick, m.Data, colorReset)
+
+		fmt.Fprintln(messagesView, formattedMessage)
+		return nil
+	})
+}
+
 func (c *chat) renderError(errorString string) {
 	c.g.Update(func(g *gocui.Gui) error {
 		messageView, err := g.View("messages")

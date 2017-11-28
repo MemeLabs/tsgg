@@ -47,6 +47,13 @@ type broadcastMessage struct {
 	Data      string `json:"data"`
 }
 
+type privatMessage struct {
+	Messageid int64  `json:"messageid"`
+	Nick      string `json:"nick"`
+	Timestamp int64  `json:"timestamp"`
+	Data      string `json:"data"`
+}
+
 var socketMessageRegex = regexp.MustCompile(`(\w+)\s(.+)`)
 
 func newChat(config *config, g *gocui.Gui) (*chat, error) {
@@ -173,6 +180,11 @@ func (c *chat) listen() {
 			json.Unmarshal([]byte(match[2]), &broadcastMessage)
 
 			c.renderBroadcast(&broadcastMessage)
+		case "PRIVMSG":
+			var privatMessage privatMessage
+			json.Unmarshal([]byte(match[2]), &privatMessage)
+
+			c.renderPrivateMessage(&privatMessage)
 		}
 
 	}
