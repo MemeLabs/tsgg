@@ -79,10 +79,6 @@ func (c *chat) connect() error {
 }
 
 func (c *chat) reconnect() {
-	if c.connection != nil {
-		return
-	}
-
 	var timeout = 2
 	for {
 		c.renderError(fmt.Sprintf("reconnecting in %d seconds...", timeout))
