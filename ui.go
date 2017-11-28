@@ -151,7 +151,7 @@ func (c *chat) renderError(errorString string) {
 	})
 }
 
-func (c *chat) renderUsers(u *userList) {
+func (c *chat) renderUsers(u userList) {
 	c.g.Update(func(g *gocui.Gui) error {
 		userView, err := g.View("users")
 		if err != nil {
