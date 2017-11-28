@@ -46,7 +46,7 @@ func layout(g *gocui.Gui) error {
 		}
 		messages.Title = " messages: "
 		messages.Autoscroll = true
-		messages.Wrap = true
+		messages.Wrap = true		
 	}
 
 	if input, err := g.SetView("input", 0, maxY-3, maxX-20, maxY-1); err != nil {

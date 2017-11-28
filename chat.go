@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -191,6 +192,12 @@ func (c *chat) listen() {
 }
 
 func (c *chat) sendMessage(message string, g *gocui.Gui) {
+
+	if message[:1] == "/" {
+		c.handleCommand(message)
+		return
+	}
+
 	err := c.connection.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	if err != nil {
 		c.renderError(err.Error())
@@ -199,7 +206,7 @@ func (c *chat) sendMessage(message string, g *gocui.Gui) {
 	}
 
 	// TODO commands
-	jsonMessage := fmt.Sprintf("MSG {\"data\":\"%s\"}", message)
+	jsonMessage := fmt.Sprintf(`MSG {"data":"%s"}`, message)
 	err = c.connection.WriteMessage(websocket.TextMessage, []byte(jsonMessage))
 	if err != nil {
 		c.renderError(err.Error())
@@ -212,4 +219,63 @@ func (c *chat) sendMessage(message string, g *gocui.Gui) {
 		c.messageHistory = append([]string{message}, c.messageHistory...)
 	}
 	c.historyIndex = -1
+}
+
+// this should probably be rewritten by someone else
+// but for now this works :FeelsChromosomeMan:
+func (c *chat) handleCommand(message string) {
+	s := strings.Split(message, " ")
+
+	switch s[0] {
+	case "/w", "/whisper":
+		if len(s) < 3 {
+			break
+		}
+		nickindex := strings.Index(message, s[1])
+		err := c.SendPrivateMessage(s[1], message[nickindex+len(s[1]):])
+		if err != nil {
+			return
+		}
+	default:
+		return
+	}
+
+	if len(c.messageHistory) > (maxChatHistory - 1) {
+		c.messageHistory = append([]string{message}, c.messageHistory[:(maxChatHistory-1)]...)
+	} else {
+		c.messageHistory = append([]string{message}, c.messageHistory...)
+	}
+	c.historyIndex = -1
+}
+
+func (c *chat) SendPrivateMessage(nick string, message string) error {
+	err := c.connection.SetWriteDeadline(time.Now().Add(5 * time.Second))
+	if err != nil {
+		c.renderError(err.Error())
+		c.reconnect()
+		return err
+	}
+
+	m := fmt.Sprintf(`PRIVMSG {"data":"%s", "nick":"%s"}`, message, strings.TrimSpace(nick))
+	err = c.connection.WriteMessage(websocket.TextMessage, []byte(m))
+	if err != nil {
+		c.renderError(err.Error())
+		c.reconnect()
+	}
+	c.g.Update(func(g *gocui.Gui) error {
+		messagesView, err := g.View("messages")
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		tm := time.Unix(time.Now().Unix()/1000, 0)
+		formattedDate := tm.Format(time.Kitchen)
+
+		formattedMessage := fmt.Sprintf("[%s]  \u001b[37;1m\u001b[1m[Whisper]%s: %s %s %s", formattedDate, c.username, nick, message, colorReset)
+
+		fmt.Fprintln(messagesView, formattedMessage)
+		return nil
+	})
+	return err
 }
