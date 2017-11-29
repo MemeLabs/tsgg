@@ -1,218 +1,75 @@
 package main
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
-	"github.com/gorilla/websocket"
 	"github.com/jroimartin/gocui"
+	"github.com/voloshink/dggchat"
 )
 
 const maxChatHistory = 10
 
 type chat struct {
 	config         *config
-	connection     *websocket.Conn
-	g              *gocui.Gui
-	userList       *userList
+	gui            *gocui.Gui
 	messageHistory []string
 	historyIndex   int
 	username       string
-}
-
-type userList struct {
-	Count int    `json:"connectioncount"`
-	Users []user `json:"users"`
-}
-
-type user struct {
-	Nick     string   `json:"nick"`
-	Features []string `json:"features"`
-}
-
-type chatMessage struct {
-	Nick      string   `json:"nick"`
-	Features  []string `json:"features"`
-	Timestamp int64    `json:"timestamp"`
-	Data      string   `json:"data"`
-}
-
-type broadcastMessage struct {
-	Timestamp int64  `json:"timestamp"`
-	Data      string `json:"data"`
-}
-
-type privatMessage struct {
-	Messageid int64  `json:"messageid"`
-	Nick      string `json:"nick"`
-	Timestamp int64  `json:"timestamp"`
-	Data      string `json:"data"`
+	Session        *dggchat.Session
 }
 
 var socketMessageRegex = regexp.MustCompile(`(\w+)\s(.+)`)
 
 func newChat(config *config, g *gocui.Gui) (*chat, error) {
+
+	dgg, err := dggchat.New(config.DGGKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if config.CustomURL != "" {
+		url, err := url.Parse(config.CustomURL)
+		if err != nil {
+			return nil, err
+		}
+		dgg.SetURL(*url)
+	}
+
 	chat := &chat{
 		config:         config,
-		g:              g,
+		gui:            g,
 		messageHistory: []string{},
 		historyIndex:   -1,
 		username:       config.Username,
+		Session:        dgg,
 	}
 
-	err := chat.connect()
-	return chat, err
+	return chat, nil
 }
 
-func (c *chat) connect() error {
-	var u string
-	if c.config.CustomURL == "" {
-		url := url.URL{Scheme: "wss", Host: "www.destiny.gg", Path: "/ws"}
-		u = url.String()
-	} else {
-		u = c.config.CustomURL
-	}
+func (c *chat) handleInput(message string, g *gocui.Gui) {
 
-	h := http.Header{}
-	h.Set("Cookie", fmt.Sprintf("authtoken=%s", c.config.DGGKey))
 	var err error
-	c.connection, _, err = websocket.DefaultDialer.Dial(u, h)
-	return err
-}
 
-func (c *chat) reconnect() {
-	var timeout = 2
-	for {
-		c.renderError(fmt.Sprintf("reconnecting in %d seconds...", timeout))
-		time.Sleep(time.Second * time.Duration(timeout))
-		err := c.connect()
-		if err != nil {
-			c.renderError(fmt.Sprintf("failed establishing connection to the chat"))
-			if timeout > 60 {
-				timeout = 1
-			}
-			timeout = timeout * 2
-			continue
-		}
-		return
-	}
-}
-
-func (c *chat) listen() {
-	defer c.connection.Close()
-	for {
-		err := c.connection.SetReadDeadline(time.Now().Add(time.Minute * 3))
-		if err != nil {
-			c.renderError("exceeded ReadDeadline")
-			c.reconnect()
-			time.Sleep(3 * time.Second)
-			continue
-		}
-		_, message, err := c.connection.ReadMessage()
-		if err != nil {
-			c.renderError("error getting message")
-			c.reconnect()
-			time.Sleep(3 * time.Second)
-			continue
-		}
-
-		m := string(message[:])
-
-		match := socketMessageRegex.FindStringSubmatch(m)
-		if len(match) != 3 {
-			continue
-		}
-
-		switch match[1] {
-		case "NAMES":
-			var userList userList
-			json.Unmarshal([]byte(match[2]), &userList)
-			c.userList = &userList
-			c.renderUsers(userList)
-		case "MSG":
-			var chatMessage chatMessage
-			json.Unmarshal([]byte(match[2]), &chatMessage)
-
-			c.renderMessage(&chatMessage)
-		case "ERR":
-			c.renderError(match[2])
-		case "QUIT":
-			var quitter user
-			json.Unmarshal([]byte(match[2]), &quitter)
-
-			index := -1
-			for i, u := range c.userList.Users {
-				if strings.EqualFold(quitter.Nick, u.Nick) {
-					index = i
-				}
-			}
-
-			if index > -1 {
-				c.userList.Users = append(c.userList.Users[:index], c.userList.Users[index+1:]...)
-				c.userList.Count--
-				c.renderUsers(*c.userList)
-			}
-
-		case "JOIN":
-			var joiner user
-			json.Unmarshal([]byte(match[2]), &joiner)
-
-			index := -1
-			for i, u := range c.userList.Users {
-				if strings.EqualFold(joiner.Nick, u.Nick) {
-					index = i
-				}
-			}
-
-			if index == -1 {
-				c.userList.Users = append(c.userList.Users, joiner)
-				c.userList.Count++
-				c.renderUsers(*c.userList)
-			}
-
-		case "BROADCAST":
-			var broadcastMessage broadcastMessage
-			json.Unmarshal([]byte(match[2]), &broadcastMessage)
-
-			c.renderBroadcast(&broadcastMessage)
-		case "PRIVMSG":
-			var privatMessage privatMessage
-			json.Unmarshal([]byte(match[2]), &privatMessage)
-
-			c.renderPrivateMessage(&privatMessage)
-		}
-
-	}
-}
-
-func (c *chat) sendMessage(message string, g *gocui.Gui) {
-
+	//TODO cannot send message starting with "/"
 	if message[:1] == "/" {
-		c.handleCommand(message)
-		return
+		err = c.handleCommand(message)
+	} else {
+		err = c.Session.SendMessage(message)
 	}
 
-	err := c.connection.SetWriteDeadline(time.Now().Add(5 * time.Second))
 	if err != nil {
 		c.renderError(err.Error())
-		c.reconnect()
-		return
+		return // TODO do we not want to append on error?
 	}
 
-	// TODO commands
-	jsonMessage := fmt.Sprintf(`MSG {"data":"%s"}`, message)
-	err = c.connection.WriteMessage(websocket.TextMessage, []byte(jsonMessage))
-	if err != nil {
-		c.renderError(err.Error())
-		c.reconnect()
-		return
-	}
 	if len(c.messageHistory) > (maxChatHistory - 1) {
 		c.messageHistory = append([]string{message}, c.messageHistory[:(maxChatHistory-1)]...)
 	} else {
@@ -221,48 +78,50 @@ func (c *chat) sendMessage(message string, g *gocui.Gui) {
 	c.historyIndex = -1
 }
 
-// this should probably be rewritten by someone else
-// but for now this works :FeelsChromosomeMan:
-func (c *chat) handleCommand(message string) {
+func (c *chat) handleCommand(message string) error {
 	s := strings.Split(message, " ")
 
+	//TODO make nickindex better; implement more commands
+
 	switch s[0] {
-	case "/w", "/whisper":
+	case "/w", "/whisper": //TODO chat frontend defines more of those
 		if len(s) < 3 {
-			break
+			return errors.New("Usage: /w user message")
 		}
 		nickindex := strings.Index(message, s[1])
 		err := c.SendPrivateMessage(s[1], message[nickindex+len(s[1]):])
 		if err != nil {
-			return
+			return err
 		}
-	default:
-		return
-	}
 
-	if len(c.messageHistory) > (maxChatHistory - 1) {
-		c.messageHistory = append([]string{message}, c.messageHistory[:(maxChatHistory-1)]...)
-	} else {
-		c.messageHistory = append([]string{message}, c.messageHistory...)
+	case "/mute":
+		if len(s) != 3 { //TODO duration is optional
+			return errors.New("Usage: /mute user [duration in seconds]")
+		}
+		nickindex := strings.Index(message, s[1])
+		duration, err := strconv.ParseInt(message[nickindex+1+len(s[1]):], 10, 64)
+		if err != nil {
+			return err
+		}
+		err = c.Session.SendMute(s[1], time.Duration(duration)*time.Second)
+		if err != nil {
+			return err
+		}
+
+	default:
+		return nil //TODO
 	}
-	c.historyIndex = -1
+	return nil //TODO
 }
 
 func (c *chat) SendPrivateMessage(nick string, message string) error {
-	err := c.connection.SetWriteDeadline(time.Now().Add(5 * time.Second))
+
+	err := c.Session.SendPrivateMessage(nick, message)
 	if err != nil {
-		c.renderError(err.Error())
-		c.reconnect()
 		return err
 	}
 
-	m := fmt.Sprintf(`PRIVMSG {"data":"%s", "nick":"%s"}`, message, strings.TrimSpace(nick))
-	err = c.connection.WriteMessage(websocket.TextMessage, []byte(m))
-	if err != nil {
-		c.renderError(err.Error())
-		c.reconnect()
-	}
-	c.g.Update(func(g *gocui.Gui) error {
+	c.gui.Update(func(g *gocui.Gui) error {
 		messagesView, err := g.View("messages")
 		if err != nil {
 			log.Println(err)

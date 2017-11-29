@@ -1,5 +1,7 @@
 {
-    "dgg_key": "key here",
+    "dgg_key": "authtoken here",
     "custom_url": "wss://www.destiny.gg/ws",
-    "username": "bob"
+    "username": "pleb",
+    "highlighted": ["Polecat", "pleb"],
+    "showjoinleave": false
 }
