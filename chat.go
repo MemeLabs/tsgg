@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log"
 	"net/url"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -24,8 +23,6 @@ type chat struct {
 	username       string
 	Session        *dggchat.Session
 }
-
-var socketMessageRegex = regexp.MustCompile(`(\w+)\s(.+)`)
 
 func newChat(config *config, g *gocui.Gui) (*chat, error) {
 
