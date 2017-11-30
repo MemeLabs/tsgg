@@ -96,50 +96,44 @@ func main() {
 		log.Panicln(err)
 	}
 
-	messages := make(chan dggchat.Message)
-	errors := make(chan string)
-	pings := make(chan dggchat.Ping)
-	mutes := make(chan dggchat.Mute)
-	unmutes := make(chan dggchat.Mute)
-	bans := make(chan dggchat.Ban)
-	unbans := make(chan dggchat.Ban)
-	joins := make(chan dggchat.RoomAction)
-	quits := make(chan dggchat.RoomAction)
-	subonly := make(chan dggchat.SubOnly)
-	broadcasts := make(chan dggchat.Broadcast)
-
 	chat.Session.AddMessageHandler(func(m dggchat.Message, s *dggchat.Session) {
-		messages <- m
+		chat.renderMessage(m)
 	})
 	chat.Session.AddErrorHandler(func(e string, s *dggchat.Session) {
-		errors <- e
+		chat.renderError(e)
 	})
 	chat.Session.AddMuteHandler(func(m dggchat.Mute, s *dggchat.Session) {
-		mutes <- m
+		chat.renderMute(m)
 	})
 	chat.Session.AddUnmuteHandler(func(m dggchat.Mute, s *dggchat.Session) {
-		unmutes <- m
+		chat.renderUnmute(m)
 	})
 	chat.Session.AddBanHandler(func(b dggchat.Ban, s *dggchat.Session) {
-		bans <- b
+		chat.renderBan(b)
 	})
 	chat.Session.AddUnbanHandler(func(b dggchat.Ban, s *dggchat.Session) {
-		unbans <- b
+		chat.renderUnban(b)
 	})
 	chat.Session.AddJoinHandler(func(r dggchat.RoomAction, s *dggchat.Session) {
-		joins <- r
+		if chat.config.ShowJoinLeave {
+			chat.renderJoin(r)
+		}
+		chat.renderUsers(chat.Session.GetUsers())
 	})
 	chat.Session.AddQuitHandler(func(r dggchat.RoomAction, s *dggchat.Session) {
-		quits <- r
+		if chat.config.ShowJoinLeave {
+			chat.renderQuit(r)
+		}
+		chat.renderUsers(chat.Session.GetUsers())
 	})
 	chat.Session.AddSubOnlyHandler(func(so dggchat.SubOnly, s *dggchat.Session) {
-		subonly <- so
+		chat.renderSubOnly(so)
 	})
 	chat.Session.AddBroadcastHandler(func(b dggchat.Broadcast, s *dggchat.Session) {
-		broadcasts <- b
+		chat.renderBroadcast(b)
 	})
 	chat.Session.AddPingHandler(func(p dggchat.Ping, s *dggchat.Session) {
-		pings <- p
+		_ = p.Timestamp //TODO
 	})
 
 	err = chat.Session.Open()
@@ -159,41 +153,6 @@ func main() {
 	}
 
 	chat.renderUsers(chat.Session.GetUsers())
-
-	go func() { //TODO
-		for {
-			select {
-			case m := <-messages:
-				chat.renderMessage(m)
-			case e := <-errors:
-				chat.renderError(e)
-			case p := <-pings:
-				_ = p.Timestamp //TODO
-			case m := <-mutes:
-				chat.renderMute(m)
-			case m := <-unmutes:
-				chat.renderUnmute(m)
-			case b := <-bans:
-				chat.renderBan(b)
-			case b := <-unbans:
-				chat.renderUnban(b)
-			case j := <-joins:
-				if chat.config.ShowJoinLeave {
-					chat.renderJoin(j)
-				}
-				chat.renderUsers(chat.Session.GetUsers())
-			case j := <-quits:
-				if chat.config.ShowJoinLeave {
-					chat.renderQuit(j)
-				}
-				chat.renderUsers(chat.Session.GetUsers())
-			case so := <-subonly:
-				chat.renderSubOnly(so)
-			case b := <-broadcasts:
-				chat.renderBroadcast(b)
-			}
-		}
-	}()
 
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Fatalln(err)
