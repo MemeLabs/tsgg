@@ -104,6 +104,21 @@ func (c *chat) handleCommand(message string) error {
 		if err != nil {
 			return err
 		}
+	case "/highlight":
+		// TODO add user to config and save
+		if len(s) < 2 {
+			return errors.New("Usage: /highlight user")
+		}
+
+		return c.addHighlight(s[1])
+
+	case "/unhighlight":
+		// TODO add user to config and save
+		if len(s) < 2 {
+			return errors.New("Usage: /unhighlight user")
+		}
+
+		return c.removeHighlight(s[1])
 
 	default:
 		return nil //TODO
@@ -134,4 +149,33 @@ func (c *chat) SendPrivateMessage(nick string, message string) error {
 		return nil
 	})
 	return err
+}
+
+func (c *chat) addHighlight(user string) error {
+
+	if contains(c.config.Highlighted, user) {
+		return errors.New(user + " is already highlighted")
+	}
+
+	c.config.Lock()
+	c.config.Highlighted = append(c.config.Highlighted, user)
+	c.config.Unlock()
+
+	return c.config.save()
+}
+
+func (c *chat) removeHighlight(user string) error {
+
+	c.config.Lock()
+	defer c.config.Unlock()
+
+	for i := 0; i < len(c.config.Highlighted); i++ {
+		if strings.ToLower(c.config.Highlighted[i]) == strings.ToLower(user) {
+			c.config.Highlighted = append(c.config.Highlighted[:i], c.config.Highlighted[i+1:]...)
+			return c.config.save()
+		}
+	}
+	c.config.Unlock()
+
+	return errors.New("User: " + user + " is not in highlight list")
 }

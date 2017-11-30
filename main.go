@@ -3,9 +3,11 @@ package main
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jroimartin/gocui"
@@ -18,6 +20,7 @@ type config struct {
 	Username      string   `json:"username"`
 	Highlighted   []string `json:"highlighted"`
 	ShowJoinLeave bool     `json:"showjoinleave"`
+	sync.RWMutex
 }
 
 var configFile string
@@ -158,4 +161,18 @@ func main() {
 		log.Fatalln(err)
 	}
 
+}
+
+func (cfg *config) save() error {
+
+	d, err := json.MarshalIndent(&cfg, "", "\t")
+	if err != nil {
+		return fmt.Errorf("error marshaling config: %v", err)
+	}
+
+	err = ioutil.WriteFile(configFile, d, 0755)
+	if err != nil {
+		return fmt.Errorf("error saving config: %v", err)
+	}
+	return nil
 }
