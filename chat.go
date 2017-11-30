@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -16,12 +17,17 @@ import (
 const maxChatHistory = 10
 
 type chat struct {
-	config         *config
-	gui            *gocui.Gui
+	config   *config
+	gui      *gocui.Gui
+	username string
+	Session  *dggchat.Session
+	emotes   []string
+
 	messageHistory []string
 	historyIndex   int
-	username       string
-	Session        *dggchat.Session
+
+	lastSuggestions []string
+	tabIndex        int
 }
 
 func newChat(config *config, g *gocui.Gui) (*chat, error) {
@@ -44,14 +50,22 @@ func newChat(config *config, g *gocui.Gui) (*chat, error) {
 		gui:            g,
 		messageHistory: []string{},
 		historyIndex:   -1,
+		tabIndex:       -1,
+		emotes:         make([]string, 0),
 		username:       config.Username,
 		Session:        dgg,
 	}
 
+	// don't wait for emotes to load
+	go func() {
+		emotes, _ := getEmotes()
+		chat.emotes = emotes
+	}()
+
 	return chat, nil
 }
 
-func (c *chat) handleInput(message string, g *gocui.Gui) {
+func (c *chat) handleInput(message string) {
 
 	var err error
 
@@ -73,6 +87,7 @@ func (c *chat) handleInput(message string, g *gocui.Gui) {
 		c.messageHistory = append([]string{message}, c.messageHistory...)
 	}
 	c.historyIndex = -1
+	c.tabIndex = -1
 }
 
 func (c *chat) handleCommand(message string) error {
@@ -106,7 +121,6 @@ func (c *chat) handleCommand(message string) error {
 		}
 
 	case "/highlight":
-		// TODO add user to config and save
 		if len(s) < 2 {
 			return errors.New("Usage: /highlight user")
 		}
@@ -114,7 +128,6 @@ func (c *chat) handleCommand(message string) error {
 		return c.addHighlight(s[1])
 
 	case "/unhighlight":
-		// TODO add user to config and save
 		if len(s) < 2 {
 			return errors.New("Usage: /unhighlight user")
 		}
@@ -225,4 +238,102 @@ func (c *chat) removeTag(user string) error {
 	}
 
 	return errors.New(user + " is not tagged")
+}
+
+func (c *chat) tabComplete(v *gocui.View) {
+	buffer := v.Buffer()
+
+	// strip \n
+	buffer = buffer[:len(buffer)-1]
+	if len(buffer) == 0 {
+		return
+	}
+
+	x, _ := v.Cursor()
+	strSlice := strings.Split(buffer, " ")
+
+	runeIndex := 0
+	var selectedWordIndex int
+
+	for i, word := range strSlice {
+		if i == len(strSlice)-1 {
+			runeIndex++
+		}
+
+		if x >= runeIndex && x <= runeIndex+len(word) {
+			selectedWordIndex = i
+			break
+		}
+		runeIndex += len(word) + 1
+	}
+
+	selectedWord := strSlice[selectedWordIndex]
+
+	if selectedWordIndex != len(strSlice)-1 {
+		// for now just deal with tabbing the last word
+		// tabbing words in the middle of a sentance
+		// is very annoying to implement
+		return
+	}
+
+	if len(selectedWord) < 2 && selectedWord != "" {
+		return
+	}
+
+	var suggestions []string
+	if c.tabIndex != -1 && c.lastSuggestions[c.tabIndex] == selectedWord {
+		suggestions = c.lastSuggestions
+	} else {
+		suggestions = c.generateSuggestions(selectedWord)
+	}
+
+	if len(suggestions) == 0 {
+		return
+	}
+
+	// movement logic
+	if c.tabIndex < len(suggestions)-1 {
+		c.tabIndex++
+	} else {
+		c.tabIndex = 0
+	}
+
+	c.lastSuggestions = suggestions
+	suggestion := suggestions[c.tabIndex]
+	strSlice[selectedWordIndex] = suggestion
+	newBuffer := []byte(strings.Join(strSlice, " "))
+
+	newCursor := len(newBuffer) + 1
+	// for i, word := range strSlice {
+	// 	if i <= selectedWordIndex {
+	// 		newCursor += len(word) + 1
+	// 	}
+	// }
+
+	v.Clear()
+	v.SetOrigin(0, 0)
+	v.Write(newBuffer)
+	v.SetCursor(newCursor, 0)
+}
+
+func (c *chat) generateSuggestions(s string) []string {
+	users := c.Session.GetUsers()
+	suggestions := make([]string, 0)
+
+	nameSlice := make([]string, 0)
+
+	for _, user := range users {
+		nameSlice = append(nameSlice, user.Nick)
+	}
+
+	nameSlice = append(nameSlice, c.emotes...)
+
+	for _, name := range nameSlice {
+		if strings.HasPrefix(strings.ToLower(name), strings.ToLower(s)) {
+			suggestions = append(suggestions, name)
+		}
+	}
+
+	sort.Strings(suggestions)
+	return suggestions
 }
