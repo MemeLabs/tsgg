@@ -171,7 +171,7 @@ func (c *chat) SendPrivateMessage(nick string, message string) error {
 		tm := time.Unix(time.Now().Unix()/1000, 0)
 		formattedDate := tm.Format(time.Kitchen)
 
-		formattedMessage := fmt.Sprintf("[%s]  \u001b[37;1m\u001b[1m[Whisper]%s: %s %s %s", formattedDate, c.username, nick, message, colorReset)
+		formattedMessage := fmt.Sprintf("[%s]  %s%s[Whisper]%s: %s %s %s", formattedDate, decorations["bold"], colors["brightWhite"], c.username, nick, message, colors["reset"])
 
 		fmt.Fprintln(messagesView, formattedMessage)
 		return nil

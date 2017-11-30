@@ -23,28 +23,51 @@ import (
 // admin - red
 
 var backgrounds = map[string]string{
-	"red":     "\u001b[41m",
-	"green":   "\u001b[42m",
-	"yellow":  "\u001b[43m",
-	"blue":    "\u001b[44m",
-	"magenta": "\u001b[45m",
-	"cyan":    "\u001b[46m",
+	"red":        "\u001b[41m",
+	"green":      "\u001b[42m",
+	"yellow":     "\u001b[43m",
+	"blue":       "\u001b[44m",
+	"magenta":    "\u001b[45m",
+	"cyan":       "\u001b[46m",
+	"brightCyan": "\u001b[46;1m",
+}
+
+var colors = map[string]string{
+	"reset":         "\u001b[0m",
+	"black":         "\u001b[30m",
+	"red":           "\u001b[31m",
+	"green":         "\u001b[32m",
+	"yellow":        "\u001b[33m",
+	"blue":          "\u001b[34m",
+	"magenta":       "\u001b[35m",
+	"cyan":          "\u001b[36m",
+	"white":         "\u001b[37m",
+	"brightBlack":   "\u001b[30;1m",
+	"brightRed":     "\u001b[31;1m",
+	"brightGreen":   "\u001b[32;1m",
+	"brightYellow":  "\u001b[33;1m",
+	"brightBlue":    "\u001b[34;1m",
+	"brightMagenta": "\u001b[35;1m",
+	"brightCyan":    "\u001b[36;1m",
+	"brightWhite":   "\u001b[37;1m",
+}
+
+var decorations = map[string]string{
+	"bold": "\u001b[1m",
 }
 
 var flairs = []map[string]string{
 	{"flair": "flair2", "badge": "n", "color": ""},
-	{"flair": "flair9", "badge": "tw", "color": "\u001b[34;1m"},
-	{"flair": "flair13", "badge": "t1", "color": "\u001b[34;1m"},
-	{"flair": "flair1", "badge": "t2", "color": "\u001b[34;1m"},
-	{"flair": "flair3", "badge": "t3", "color": "\u001b[34m"},
-	{"flair": "flair8", "badge": "t4", "color": "\u001b[35m"},
-	{"flair": "flair11", "badge": "bot2", "color": "\u001b[30;1m"},
-	{"flair": "bot", "badge": "bot", "color": "\u001b[33m"},
-	{"flair": "vip", "badge": "vip", "color": "\u001b[32m"},
-	{"flair": "admin", "badge": "@", "color": "\u001b[31m"},
+	{"flair": "flair9", "badge": "tw", "color": colors["brightBlue"]},
+	{"flair": "flair13", "badge": "t1", "color": colors["brightBlue"]},
+	{"flair": "flair1", "badge": "t2", "color": colors["brightBlue"]},
+	{"flair": "flair3", "badge": "t3", "color": colors["blue"]},
+	{"flair": "flair8", "badge": "t4", "color": colors["magenta"]},
+	{"flair": "flair11", "badge": "bot2", "color": colors["brightBlack"]},
+	{"flair": "bot", "badge": "bot", "color": colors["yellow"]},
+	{"flair": "vip", "badge": "vip", "color": colors["green"]},
+	{"flair": "admin", "badge": "@", "color": colors["red"]},
 }
-
-const colorReset = "\u001b[0m"
 
 func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
@@ -103,30 +126,32 @@ func (c *chat) renderMessage(m dggchat.Message) {
 		for _, flair := range flairs {
 			if contains(m.Sender.Features, flair["flair"]) {
 				taggedNick = fmt.Sprintf("[%s]%s", flair["badge"], taggedNick)
-				coloredNick = fmt.Sprintf("%s%s %s", flair["color"], taggedNick, colorReset)
+				coloredNick = fmt.Sprintf("%s%s %s", flair["color"], taggedNick, colors["reset"])
 			}
 		}
 
 		for _, highlighted := range c.config.Highlighted {
 			if strings.EqualFold(m.Sender.Nick, highlighted) {
 				taggedNick = fmt.Sprintf("[*]%s", taggedNick)
-				coloredNick = fmt.Sprintf("\u001b[36m%s %s", taggedNick, colorReset)
+				coloredNick = fmt.Sprintf("%s%s %s", colors["cyan"], taggedNick, colors["reset"])
 			}
 		}
 
 		if coloredNick == "" {
-			coloredNick = fmt.Sprintf("%s%s %s", colorReset, taggedNick, colorReset)
+			coloredNick = fmt.Sprintf("%s%s %s", colors["reset"], taggedNick, colors["reset"])
 		}
 
 		formattedData := m.Message
 		if c.username != "" && strings.Contains(strings.ToLower(m.Message), strings.ToLower(c.username)) {
-			formattedData = fmt.Sprintf("\u001b[46;1m%s %s", m.Message, colorReset)
+			formattedData = fmt.Sprintf("%s%s %s", backgrounds["brightCyan"], m.Message, colors["reset"])
+		} else if strings.HasPrefix(m.Message, ">") {
+			formattedData = fmt.Sprintf("%s%s %s", colors["green"], m.Message, colors["reset"])
 		}
 
 		formattedTag := "  "
 		c.config.RLock()
 		if color, ok := c.config.Tags[strings.ToLower(m.Sender.Nick)]; ok {
-			formattedTag = fmt.Sprintf("%s  %s", backgrounds[color], colorReset)
+			formattedTag = fmt.Sprintf("%s  %s", backgrounds[color], colors["reset"])
 		}
 		c.config.RUnlock()
 
@@ -147,7 +172,7 @@ func (c *chat) renderBroadcast(b dggchat.Broadcast) {
 
 		formattedDate := b.Timestamp.Format(time.Kitchen)
 
-		formattedMessage := fmt.Sprintf("\u001b[33;1m[%s] %s: %s %s", formattedDate, " Broadcast", b.Message, colorReset)
+		formattedMessage := fmt.Sprintf("%s[%s] %s: %s %s", colors["brightYellow"], formattedDate, " Broadcast", b.Message, colors["reset"])
 		fmt.Fprintln(messagesView, formattedMessage)
 		return nil
 	})
@@ -163,7 +188,7 @@ func (c *chat) renderPrivateMessage(pm dggchat.PrivateMessage) {
 
 		formattedDate := pm.Timestamp.Format(time.Kitchen)
 
-		formattedMessage := fmt.Sprintf("[%s]  \u001b[37;1m\u001b[1m[Whisper]%s: %s %s", formattedDate, pm.User.Nick, pm.Message, colorReset)
+		formattedMessage := fmt.Sprintf("[%s]  %s%s[Whisper]%s: %s %s", formattedDate, colors["brightWhite"], decorations["bold"], pm.User.Nick, pm.Message, colors["reset"])
 
 		fmt.Fprintln(messagesView, formattedMessage)
 		return nil
@@ -178,7 +203,7 @@ func (c *chat) renderError(errorString string) {
 			return err
 		}
 
-		errorMessage := fmt.Sprintf("\u001b[31m*Error sending message: %s*%s", errorString, colorReset)
+		errorMessage := fmt.Sprintf("%s*Error sending message: %s*%s", colors["red"], errorString, colors["reset"])
 		fmt.Fprintln(messageView, errorMessage)
 		return nil
 	})
@@ -208,7 +233,7 @@ func (c *chat) renderJoin(join dggchat.RoomAction) {
 			return err
 		}
 
-		joinMessage := fmt.Sprintf("JOIN: %s%s", join.User.Nick, colorReset)
+		joinMessage := fmt.Sprintf("JOIN: %s%s", join.User.Nick, colors["reset"])
 		fmt.Fprintln(messageView, joinMessage)
 		return nil
 	})
@@ -223,7 +248,7 @@ func (c *chat) renderQuit(quit dggchat.RoomAction) {
 			return err
 		}
 
-		quitMessage := fmt.Sprintf("QUIT: %s%s", quit.User.Nick, colorReset)
+		quitMessage := fmt.Sprintf("QUIT: %s%s", quit.User.Nick, colors["reset"])
 		fmt.Fprintln(messageView, quitMessage)
 		return nil
 	})
@@ -238,7 +263,7 @@ func (c *chat) renderMute(mute dggchat.Mute) {
 			return err
 		}
 
-		joinMessage := fmt.Sprintf("MUTE: %s muted by %s %s", mute.Target.Nick, mute.Sender.Nick, colorReset)
+		joinMessage := fmt.Sprintf("MUTE: %s muted by %s %s", mute.Target.Nick, mute.Sender.Nick, colors["reset"])
 		fmt.Fprintln(messageView, joinMessage)
 		return nil
 	})
@@ -253,7 +278,7 @@ func (c *chat) renderUnmute(mute dggchat.Mute) {
 			return err
 		}
 
-		joinMessage := fmt.Sprintf("UNMUTE: %s unmuted by %s %s", mute.Target.Nick, mute.Sender.Nick, colorReset)
+		joinMessage := fmt.Sprintf("UNMUTE: %s unmuted by %s %s", mute.Target.Nick, mute.Sender.Nick, colors["reset"])
 		fmt.Fprintln(messageView, joinMessage)
 		return nil
 	})
@@ -268,7 +293,7 @@ func (c *chat) renderBan(ban dggchat.Ban) {
 			return err
 		}
 
-		joinMessage := fmt.Sprintf("BAN: %s banned by %s %s", ban.Target.Nick, ban.Sender.Nick, colorReset)
+		joinMessage := fmt.Sprintf("BAN: %s banned by %s %s", ban.Target.Nick, ban.Sender.Nick, colors["reset"])
 		fmt.Fprintln(messageView, joinMessage)
 		return nil
 	})
@@ -283,7 +308,7 @@ func (c *chat) renderUnban(ban dggchat.Ban) {
 			return err
 		}
 
-		joinMessage := fmt.Sprintf("UNBAN: %s unbanned by %s %s", ban.Target.Nick, ban.Sender.Nick, colorReset)
+		joinMessage := fmt.Sprintf("UNBAN: %s unbanned by %s %s", ban.Target.Nick, ban.Sender.Nick, colors["reset"])
 		fmt.Fprintln(messageView, joinMessage)
 		return nil
 	})
@@ -298,7 +323,7 @@ func (c *chat) renderSubOnly(so dggchat.SubOnly) {
 			return err
 		}
 
-		joinMessage := fmt.Sprintf("SUBONLY: %s changed subonly mode to: %t %s", so.Sender.Nick, so.Active, colorReset)
+		joinMessage := fmt.Sprintf("SUBONLY: %s changed subonly mode to: %t %s", so.Sender.Nick, so.Active, colors["reset"])
 		fmt.Fprintln(messageView, joinMessage)
 		return nil
 	})
@@ -318,12 +343,12 @@ func (c *chat) renderUsers(dggusers []dggchat.User) {
 		var users string
 		for _, u := range dggusers {
 			_, flair := highestFlair(u)
-			color := colorReset
+			color := colors["reset"]
 
 			if flair != nil {
 				color = flair["color"]
 			}
-			users += fmt.Sprintf("%s%s%s\n", color, u.Nick, colorReset)
+			users += fmt.Sprintf("%s%s%s\n", color, u.Nick, colors["reset"])
 		}
 
 		userView.Clear()
