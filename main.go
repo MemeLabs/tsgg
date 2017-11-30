@@ -15,11 +15,12 @@ import (
 )
 
 type config struct {
-	DGGKey        string   `json:"dgg_key"`
-	CustomURL     string   `json:"custom_url"`
-	Username      string   `json:"username"`
-	Highlighted   []string `json:"highlighted"`
-	ShowJoinLeave bool     `json:"showjoinleave"`
+	DGGKey        string            `json:"dgg_key"`
+	CustomURL     string            `json:"custom_url"`
+	Username      string            `json:"username"`
+	Highlighted   []string          `json:"highlighted"`
+	Tags          map[string]string `json:"tags"`
+	ShowJoinLeave bool              `json:"showjoinleave"`
 	sync.RWMutex
 }
 

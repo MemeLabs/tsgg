@@ -22,6 +22,15 @@ import (
 // vip - green
 // admin - red
 
+var backgrounds = map[string]string{
+	"red":     "\u001b[41m",
+	"green":   "\u001b[42m",
+	"yellow":  "\u001b[43m",
+	"blue":    "\u001b[44m",
+	"magenta": "\u001b[45m",
+	"cyan":    "\u001b[46m",
+}
+
 var flairs = []map[string]string{
 	{"flair": "flair2", "badge": "n", "color": ""},
 	{"flair": "flair9", "badge": "tw", "color": "\u001b[34;1m"},
@@ -94,19 +103,19 @@ func (c *chat) renderMessage(m dggchat.Message) {
 		for _, flair := range flairs {
 			if contains(m.Sender.Features, flair["flair"]) {
 				taggedNick = fmt.Sprintf("[%s]%s", flair["badge"], taggedNick)
-				coloredNick = fmt.Sprintf("%s %s %s", flair["color"], taggedNick, colorReset)
+				coloredNick = fmt.Sprintf("%s%s %s", flair["color"], taggedNick, colorReset)
 			}
 		}
 
 		for _, highlighted := range c.config.Highlighted {
 			if strings.EqualFold(m.Sender.Nick, highlighted) {
 				taggedNick = fmt.Sprintf("[*]%s", taggedNick)
-				coloredNick = fmt.Sprintf("\u001b[36m %s %s", taggedNick, colorReset)
+				coloredNick = fmt.Sprintf("\u001b[36m%s %s", taggedNick, colorReset)
 			}
 		}
 
 		if coloredNick == "" {
-			coloredNick = fmt.Sprintf("%s %s %s", colorReset, taggedNick, colorReset)
+			coloredNick = fmt.Sprintf("%s%s %s", colorReset, taggedNick, colorReset)
 		}
 
 		formattedData := m.Message
@@ -114,7 +123,14 @@ func (c *chat) renderMessage(m dggchat.Message) {
 			formattedData = fmt.Sprintf("\u001b[46;1m%s %s", m.Message, colorReset)
 		}
 
-		formattedMessage := fmt.Sprintf("[%s] %s: %s", formattedDate, coloredNick, formattedData)
+		formattedTag := "  "
+		c.config.RLock()
+		if color, ok := c.config.Tags[strings.ToLower(m.Sender.Nick)]; ok {
+			formattedTag = fmt.Sprintf("%s  %s", backgrounds[color], colorReset)
+		}
+		c.config.RUnlock()
+
+		formattedMessage := fmt.Sprintf("[%s]%s%s: %s", formattedDate, formattedTag, coloredNick, formattedData)
 
 		fmt.Fprintln(messagesView, formattedMessage)
 		return nil

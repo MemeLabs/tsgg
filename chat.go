@@ -104,6 +104,7 @@ func (c *chat) handleCommand(message string) error {
 		if err != nil {
 			return err
 		}
+
 	case "/highlight":
 		// TODO add user to config and save
 		if len(s) < 2 {
@@ -119,6 +120,20 @@ func (c *chat) handleCommand(message string) error {
 		}
 
 		return c.removeHighlight(s[1])
+
+	case "/tag":
+		if len(s) < 3 {
+			return errors.New("Usage: /tag user [Red, Green, Yellow, Blue, Magenta, Cyan]")
+		}
+
+		return c.addTag(s[1], s[2])
+
+	case "/untag":
+		if len(s) < 2 {
+			return errors.New("Usage: /untag user")
+		}
+
+		return c.removeTag(s[1])
 
 	default:
 		return nil //TODO
@@ -177,4 +192,37 @@ func (c *chat) removeHighlight(user string) error {
 	}
 
 	return errors.New("User: " + user + " is not in highlight list")
+}
+
+func (c *chat) addTag(user, color string) error {
+	color = strings.ToLower(color)
+	user = strings.ToLower(user)
+
+	_, ok := backgrounds[color]
+	if !ok {
+		return errors.New("invalid color: " + color)
+	}
+
+	c.config.Lock()
+	if c.config.Tags == nil {
+		c.config.Tags = make(map[string]string)
+	}
+	c.config.Tags[user] = color
+	c.config.Unlock()
+
+	return c.config.save()
+}
+
+func (c *chat) removeTag(user string) error {
+	user = strings.ToLower(user)
+
+	c.config.Lock()
+	defer c.config.Unlock()
+
+	if _, ok := c.config.Tags[user]; ok {
+		delete(c.config.Tags, user)
+		return c.config.save()
+	}
+
+	return errors.New(user + " is not tagged")
 }
