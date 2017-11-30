@@ -66,15 +66,15 @@ func main() {
 	}
 
 	if err := g.SetKeybinding("input", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = historyUp(g, v, chat)
-		return err
+		historyUp(g, v, chat)
+		return nil
 	}); err != nil {
 		log.Panicln(err)
 	}
 
 	if err := g.SetKeybinding("input", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = historyDown(g, v, chat)
-		return err
+		historyDown(g, v, chat)
+		return nil
 	}); err != nil {
 		log.Panicln(err)
 	}
@@ -85,7 +85,7 @@ func main() {
 			return nil
 		}
 
-		chat.handleInput(strings.TrimSpace(v.Buffer()))
+		chat.handleInput(strings.TrimSpace(v.Buffer()), g)
 		g.Update(func(g *gocui.Gui) error {
 			v.Clear()
 			v.SetCursor(0, 0)
@@ -93,15 +93,6 @@ func main() {
 			return nil
 		})
 
-		return nil
-	})
-
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	err = g.SetKeybinding("input", gocui.KeyTab, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		chat.tabComplete(v)
 		return nil
 	})
 
