@@ -175,7 +175,6 @@ func (c *chat) removeHighlight(user string) error {
 			return c.config.save()
 		}
 	}
-	c.config.Unlock()
 
 	return errors.New("User: " + user + " is not in highlight list")
 }
