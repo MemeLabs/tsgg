@@ -64,6 +64,7 @@ var flairs = []map[string]string{
 	{"flair": "flair3", "badge": "t3", "color": colors["blue"]},
 	{"flair": "flair8", "badge": "t4", "color": colors["magenta"]},
 	{"flair": "flair11", "badge": "bot2", "color": colors["brightBlack"]},
+	{"flair": "flair12", "badge": "@", "color": colors["brightCyan"]},
 	{"flair": "bot", "badge": "bot", "color": colors["yellow"]},
 	{"flair": "vip", "badge": "vip", "color": colors["green"]},
 	{"flair": "admin", "badge": "@", "color": colors["red"]},
