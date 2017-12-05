@@ -1,12 +1,9 @@
 package main
 
 import (
-	"fmt"
-	"log"
 	"net/url"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/jroimartin/gocui"
 	"github.com/voloshink/dggchat"
@@ -19,6 +16,7 @@ type chat struct {
 	gui      *gocui.Gui
 	username string
 	Session  *dggchat.Session
+	flairs   []flair
 	emotes   []string
 
 	messageHistory []string
@@ -52,6 +50,7 @@ func newChat(config *config, g *gocui.Gui) (*chat, error) {
 		emotes:         make([]string, 0),
 		username:       config.Username,
 		Session:        dgg,
+		flairs:         newflairs,
 	}
 
 	// don't wait for emotes to load
@@ -76,7 +75,7 @@ func (c *chat) handleInput(message string) {
 
 	if err != nil {
 		c.renderError(err.Error())
-		return // TODO do we not want to append on error?
+		// don't return, append message even on error
 	}
 
 	if len(c.messageHistory) > (maxChatHistory - 1) {
@@ -86,31 +85,6 @@ func (c *chat) handleInput(message string) {
 	}
 	c.historyIndex = -1
 	c.tabIndex = -1
-}
-
-func (c *chat) SendPrivateMessage(nick string, message string) error {
-
-	err := c.Session.SendPrivateMessage(nick, message)
-	if err != nil {
-		return err
-	}
-
-	c.gui.Update(func(g *gocui.Gui) error {
-		messagesView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		tm := time.Unix(time.Now().Unix()/1000, 0)
-		formattedDate := tm.Format(time.Kitchen)
-
-		formattedMessage := fmt.Sprintf("[%s]  %s%s[Whisper]%s: %s %s %s", formattedDate, decorations["bold"], colors["brightWhite"], c.username, nick, message, colors["reset"])
-
-		fmt.Fprintln(messagesView, formattedMessage)
-		return nil
-	})
-	return err
 }
 
 func (c *chat) tabComplete(v *gocui.View) {
@@ -201,6 +175,11 @@ func (c *chat) generateSuggestions(s string) []string {
 
 	nameSlice = append(nameSlice, c.emotes...)
 
+	// add commands to suggestions
+	for cmd := range commands {
+		nameSlice = append(nameSlice, cmd)
+	}
+
 	for _, name := range nameSlice {
 		if strings.HasPrefix(strings.ToLower(name), strings.ToLower(s)) {
 			suggestions = append(suggestions, name)
@@ -209,4 +188,30 @@ func (c *chat) generateSuggestions(s string) []string {
 
 	sort.Strings(suggestions)
 	return suggestions
+}
+
+func (c *chat) sortUsers(u []dggchat.User) {
+	sort.SliceStable(u, func(i, j int) bool {
+		iUser := u[i]
+		jUser := u[j]
+
+		iIndex, _ := c.highestFlair(iUser)
+		jIndex, _ := c.highestFlair(jUser)
+
+		return iIndex > jIndex
+	})
+}
+
+func (c *chat) highestFlair(u dggchat.User) (int, flair) {
+	index := -1
+	var highestFlair flair
+
+	for i, flair := range c.flairs {
+		if contains(u.Features, flair.Name) {
+			index = i
+			highestFlair = flair
+		}
+	}
+
+	return index, highestFlair
 }

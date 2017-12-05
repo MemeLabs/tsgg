@@ -18,11 +18,14 @@ type config struct {
 	DGGKey          string            `json:"dgg_key"`
 	CustomURL       string            `json:"custom_url"`
 	Username        string            `json:"username"`
+	Timeformat      string            `json:"timeformat"`
+	Maxlines        int               `json:"maxlines"`
 	ScrollingSpeed  int               `json:"scrolling_speed"`
 	PageUpDownSpeed int               `json:"page_up_down_Speed"`
 	Highlighted     []string          `json:"highlighted"`
 	Tags            map[string]string `json:"tags"`
 	ShowJoinLeave   bool              `json:"showjoinleave"`
+	LegacyFlairs    bool              `json:"legacyflairs"`
 	sync.RWMutex
 }
 
@@ -41,8 +44,10 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	// defaults
+	// defaults that won't be set corretly if omitted in config file
 	config := config{
+		Timeformat:      time.Kitchen,
+		Maxlines:        1000,
 		ScrollingSpeed:  1,
 		PageUpDownSpeed: 10,
 	}
@@ -77,6 +82,10 @@ func main() {
 	if err != nil {
 		log.Println(err)
 		return
+	}
+
+	if config.LegacyFlairs {
+		chat.flairs = legacyflairs
 	}
 
 	if err := g.SetKeybinding("input", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
@@ -200,6 +209,9 @@ func main() {
 	})
 	chat.Session.AddBroadcastHandler(func(b dggchat.Broadcast, s *dggchat.Session) {
 		chat.renderBroadcast(b)
+	})
+	chat.Session.AddPMHandler(func(pm dggchat.PrivateMessage, s *dggchat.Session) {
+		chat.renderPrivateMessage(pm)
 	})
 	chat.Session.AddPingHandler(func(p dggchat.Ping, s *dggchat.Session) {
 		_ = p.Timestamp //TODO
