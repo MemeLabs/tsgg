@@ -2,77 +2,47 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
 )
 
+// TODO more fields maybe?
+type command struct {
+	c           func(*chat, []string) error
+	usage       string
+	description string
+}
+
+// TODO fill out or remove if unnecessary
+var commands = map[string]command{
+	"/w":           {sendWhisper, "user message", ""},
+	"/whisper":     {sendWhisper, "user message", ""},
+	"/mute":        {sendMute, "user [duration in seconds]", ""},
+	"/highlight":   {addHighlight, "user", ""},
+	"/unhighlight": {removeHighlight, "user", ""},
+	"/tag":         {addTag, "user color", ""},
+	"/untag":       {removeTag, "user", ""},
+}
+
 func (c *chat) handleCommand(message string) error {
 	s := strings.Split(message, " ")
 
-	//TODO make nickindex better; implement more commands
-
-	switch s[0] {
-	case "/w", "/whisper": //TODO chat frontend defines more of those
-		if len(s) < 3 {
-			return errors.New("Usage: /w user message")
-		}
-		nickindex := strings.Index(message, s[1])
-		err := c.SendPrivateMessage(s[1], message[nickindex+len(s[1]):])
-		if err != nil {
-			return err
-		}
-
-	case "/mute":
-		if len(s) != 3 { //TODO duration is optional
-			return errors.New("Usage: /mute user [duration in seconds]")
-		}
-		nickindex := strings.Index(message, s[1])
-		duration, err := strconv.ParseInt(message[nickindex+1+len(s[1]):], 10, 64)
-		if err != nil {
-			return err
-		}
-		err = c.Session.SendMute(s[1], time.Duration(duration)*time.Second)
-		if err != nil {
-			return err
-		}
-
-	case "/highlight":
-		if len(s) < 2 {
-			return errors.New("Usage: /highlight user")
-		}
-
-		return c.addHighlight(s[1])
-
-	case "/unhighlight":
-		if len(s) < 2 {
-			return errors.New("Usage: /unhighlight user")
-		}
-
-		return c.removeHighlight(s[1])
-
-	case "/tag":
-		if len(s) < 3 {
-			return errors.New("Usage: /tag user [Red, Green, Yellow, Blue, Magenta, Cyan]")
-		}
-
-		return c.addTag(s[1], s[2])
-
-	case "/untag":
-		if len(s) < 2 {
-			return errors.New("Usage: /untag user")
-		}
-
-		return c.removeTag(s[1])
-
-	default:
-		return nil //TODO
+	f, ok := commands[s[0]]
+	if ok {
+		return f.c(c, s)
 	}
-	return nil //TODO
+
+	return fmt.Errorf("unknown command: %s", s[0])
 }
 
-func (c *chat) addHighlight(user string) error {
+func addHighlight(c *chat, tokens []string) error {
+	if len(tokens) < 2 {
+		return errors.New("Usage: /highlight user")
+	}
 
+	user := strings.ToLower(tokens[1])
 	if contains(c.config.Highlighted, user) {
 		return errors.New(user + " is already highlighted")
 	}
@@ -84,13 +54,17 @@ func (c *chat) addHighlight(user string) error {
 	return c.config.save()
 }
 
-func (c *chat) removeHighlight(user string) error {
+func removeHighlight(c *chat, tokens []string) error {
+	if len(tokens) < 2 {
+		return errors.New("Usage: /unhighlight user")
+	}
 
+	user := strings.ToLower(tokens[1])
 	c.config.Lock()
 	defer c.config.Unlock()
 
 	for i := 0; i < len(c.config.Highlighted); i++ {
-		if strings.ToLower(c.config.Highlighted[i]) == strings.ToLower(user) {
+		if strings.ToLower(c.config.Highlighted[i]) == user {
 			c.config.Highlighted = append(c.config.Highlighted[:i], c.config.Highlighted[i+1:]...)
 			return c.config.save()
 		}
@@ -99,9 +73,13 @@ func (c *chat) removeHighlight(user string) error {
 	return errors.New("User: " + user + " is not in highlight list")
 }
 
-func (c *chat) addTag(user, color string) error {
-	color = strings.ToLower(color)
-	user = strings.ToLower(user)
+func addTag(c *chat, tokens []string) error {
+	if len(tokens) < 3 {
+		return errors.New("Usage: /tag user [Red, Green, Yellow, Blue, Magenta, Cyan]")
+	}
+
+	color := strings.ToLower(tokens[2])
+	user := strings.ToLower(tokens[1])
 
 	_, ok := backgrounds[color]
 	if !ok {
@@ -118,8 +96,12 @@ func (c *chat) addTag(user, color string) error {
 	return c.config.save()
 }
 
-func (c *chat) removeTag(user string) error {
-	user = strings.ToLower(user)
+func removeTag(c *chat, tokens []string) error {
+	if len(tokens) < 2 {
+		return errors.New("Usage: /untag user")
+	}
+
+	user := strings.ToLower(tokens[1])
 
 	c.config.Lock()
 	defer c.config.Unlock()
@@ -130,4 +112,31 @@ func (c *chat) removeTag(user string) error {
 	}
 
 	return errors.New(user + " is not tagged")
+}
+
+func sendMute(c *chat, tokens []string) error {
+	if len(tokens) < 2 {
+		return errors.New("Usage: /mute user [duration in seconds]")
+	}
+
+	var err error
+	duration := int64(60)
+
+	if len(tokens) >= 3 {
+		duration, err = strconv.ParseInt(strings.TrimSpace(tokens[2]), 10, 64)
+		if err != nil {
+			return err
+		}
+	}
+
+	return c.Session.SendMute(tokens[1], time.Duration(duration)*time.Second)
+}
+
+func sendWhisper(c *chat, tokens []string) error {
+	if len(tokens) < 3 {
+		return errors.New("Usage: /w user message")
+	}
+
+	message := strings.Join(tokens[2:], " ")
+	return c.SendPrivateMessage(tokens[1], message)
 }

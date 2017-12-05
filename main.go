@@ -15,12 +15,14 @@ import (
 )
 
 type config struct {
-	DGGKey        string            `json:"dgg_key"`
-	CustomURL     string            `json:"custom_url"`
-	Username      string            `json:"username"`
-	Highlighted   []string          `json:"highlighted"`
-	Tags          map[string]string `json:"tags"`
-	ShowJoinLeave bool              `json:"showjoinleave"`
+	DGGKey          string            `json:"dgg_key"`
+	CustomURL       string            `json:"custom_url"`
+	Username        string            `json:"username"`
+	ScrollingSpeed  int               `json:"scrolling_speed"`
+	PageUpDownSpeed int               `json:"page_up_down_Speed"`
+	Highlighted     []string          `json:"highlighted"`
+	Tags            map[string]string `json:"tags"`
+	ShowJoinLeave   bool              `json:"showjoinleave"`
 	sync.RWMutex
 }
 
@@ -39,7 +41,12 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	var config config
+	// defaults
+	config := config{
+		ScrollingSpeed:  1,
+		PageUpDownSpeed: 10,
+	}
+
 	err = json.Unmarshal(file, &config)
 	if err != nil {
 		log.Fatalf("malformed configuration file: %v\n", err)
@@ -59,6 +66,10 @@ func main() {
 	}
 
 	if err := g.SetKeybinding("", gocui.KeyF1, gocui.ModNone, showHelp); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("", gocui.KeyF12, gocui.ModNone, showDebug); err != nil {
 		log.Panicln(err)
 	}
 
@@ -83,14 +94,28 @@ func main() {
 	}
 
 	if err := g.SetKeybinding("messages", gocui.MouseWheelUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = scroll(-1, chat, "messages")
+		err = scroll(-chat.config.ScrollingSpeed, chat, "messages")
 		return err
 	}); err != nil {
 		log.Panicln(err)
 	}
 
 	if err := g.SetKeybinding("messages", gocui.MouseWheelDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = scroll(1, chat, "messages")
+		err = scroll(chat.config.ScrollingSpeed, chat, "messages")
+		return err
+	}); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("", gocui.KeyPgup, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		err = scroll(-chat.config.PageUpDownSpeed, chat, "messages")
+		return err
+	}); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("", gocui.KeyPgdn, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		err = scroll(chat.config.PageUpDownSpeed, chat, "messages")
 		return err
 	}); err != nil {
 		log.Panicln(err)

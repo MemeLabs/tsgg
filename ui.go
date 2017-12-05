@@ -123,12 +123,10 @@ func showHelp(g *gocui.Gui, v *gocui.View) error {
 			}
 			messages.Title = " help: "
 			messages.Wrap = true
-			fmt.Fprint(messages, `
-Commands:
-    /(un)tag       user color
-    /(un)highlight user
-    /w(hisper)     user message
-`)
+			fmt.Fprint(messages, "Commands:\n")
+			for k, v := range commands {
+				fmt.Fprintf(messages, "  - %s %s\n", k, v.usage)
+			}
 			helpactive = !helpactive
 			g.SetViewOnTop("help")
 		}
@@ -136,6 +134,28 @@ Commands:
 	}
 	helpactive = !helpactive
 	return g.DeleteView("help")
+}
+
+var debugActive = false
+
+// TODO more info?
+func showDebug(g *gocui.Gui, v *gocui.View) error {
+	if !debugActive {
+		maxX, maxY := g.Size()
+		if messages, err := g.SetView("debug", maxX/4*2, 0, maxX-20, maxY/3); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			messages.Title = " debug: "
+			messages.Wrap = true
+			messages.Autoscroll = true
+			debugActive = !debugActive
+			g.SetViewOnTop("debug")
+		}
+		return nil
+	}
+	debugActive = !debugActive
+	return g.DeleteView("debug")
 }
 
 func (c *chat) renderMessage(m dggchat.Message) {
@@ -239,8 +259,11 @@ func (c *chat) renderError(errorString string) {
 
 // TODO colors
 func (c *chat) renderDebug(s interface{}) {
+	if !debugActive {
+		return
+	}
 	c.gui.Update(func(g *gocui.Gui) error {
-		messageView, err := g.View("messages")
+		messageView, err := g.View("debug")
 		if err != nil {
 			log.Println(err)
 			return err
@@ -439,6 +462,9 @@ func historyUp(g *gocui.Gui, v *gocui.View, chat *chat) error {
 
 func historyDown(g *gocui.Gui, v *gocui.View, chat *chat) error {
 	if chat.historyIndex < 1 {
+		chat.historyIndex = -1
+		v.Clear()
+		v.SetCursor(0, 0)
 		return nil
 	}
 
@@ -458,14 +484,24 @@ func scroll(dy int, chat *chat, view string) error {
 	_, y := v.Size()
 	ox, oy := v.Origin()
 
+	// target y
+	ty := oy + dy
+
 	// If we're at the bottom...
-	if oy+dy > strings.Count(v.ViewBuffer(), "\n")-y-1 && view != "users" {
+	lines := strings.Count(v.ViewBuffer(), "\n") - y - 1
+	if ty > lines && view != "users" {
 		// Set autoscroll to normal again.
 		v.Autoscroll = true
-	} else {
-		// Set autoscroll to false and scroll.
-		v.Autoscroll = false
-		v.SetOrigin(ox, oy+dy)
+		return nil
 	}
+	// Set autoscroll to false and scroll.
+	v.Autoscroll = false
+	chat.renderDebug(fmt.Sprintf("ox: %d, oy: %d, dy: %d, y: %d, lines: %d", ox, oy, dy, y, lines))
+	if ty < 0 {
+		chat.renderDebug("setting ty: %d to 0")
+		ty = 0
+	}
+	v.SetOrigin(ox, ty)
+
 	return nil
 }
