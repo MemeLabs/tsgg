@@ -20,6 +20,7 @@ var commands = map[string]command{
 	"/w":           {sendWhisper, "user message", ""},
 	"/whisper":     {sendWhisper, "user message", ""},
 	"/mute":        {sendMute, "user [duration in seconds]", ""},
+	"/unmute":      {sendUnmute, "user", ""},
 	"/highlight":   {addHighlight, "user", ""},
 	"/unhighlight": {removeHighlight, "user", ""},
 	"/tag":         {addTag, "user color", ""},
@@ -75,13 +76,13 @@ func removeHighlight(c *chat, tokens []string) error {
 
 func addTag(c *chat, tokens []string) error {
 	if len(tokens) < 3 {
-		return errors.New("Usage: /tag user [Red, Green, Yellow, Blue, Magenta, Cyan]")
+		return errors.New("Usage: /tag user [Black, Red, Green, Yellow, Blue, Magenta, Cyan, White]")
 	}
 
 	color := strings.ToLower(tokens[2])
 	user := strings.ToLower(tokens[1])
 
-	_, ok := backgrounds[color]
+	_, ok := tagMap[color]
 	if !ok {
 		return errors.New("invalid color: " + color)
 	}
@@ -132,11 +133,26 @@ func sendMute(c *chat, tokens []string) error {
 	return c.Session.SendMute(tokens[1], time.Duration(duration)*time.Second)
 }
 
+func sendUnmute(c *chat, tokens []string) error {
+	if len(tokens) < 2 {
+		return errors.New("Usage: /mute user")
+	}
+
+	return c.Session.SendUnmute(tokens[1])
+}
+
 func sendWhisper(c *chat, tokens []string) error {
 	if len(tokens) < 3 {
 		return errors.New("Usage: /w user message")
 	}
 
+	nick := tokens[1]
 	message := strings.Join(tokens[2:], " ")
-	return c.SendPrivateMessage(tokens[1], message)
+
+	tm := time.Unix(time.Now().Unix()/1000, 0)
+	tag := fmt.Sprintf(" %s*%s ", bgWhite, reset)
+	msg := fmt.Sprintf("%s%s[PM -> %s] %s %s", tag, fgBrightWhite, nick, message, reset)
+	c.Session.SendPrivateMessage(nick, message)
+	c.renderFormattedMessage(msg, tm)
+	return nil
 }

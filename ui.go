@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"sort"
 	"strings"
 	"time"
 
@@ -11,63 +10,52 @@ import (
 	"github.com/voloshink/dggchat"
 )
 
-// flair9 - twithcsub
-// flair13 - t1
-// flair1 - t2
-// flair3 - t3
-// flair8 - t4
-// flair2 - notable
-// protected
-// bot
-// vip - green
-// admin - red
+type color string
 
-var backgrounds = map[string]string{
-	"red":        "\u001b[41m",
-	"green":      "\u001b[42m",
-	"yellow":     "\u001b[43m",
-	"blue":       "\u001b[44m",
-	"magenta":    "\u001b[45m",
-	"cyan":       "\u001b[46m",
-	"brightCyan": "\u001b[46;1m",
-}
+const (
+	none  color = ""
+	reset color = "\u001b[0m"
 
-var colors = map[string]string{
-	"reset":         "\u001b[0m",
-	"black":         "\u001b[30m",
-	"red":           "\u001b[31m",
-	"green":         "\u001b[32m",
-	"yellow":        "\u001b[33m",
-	"blue":          "\u001b[34m",
-	"magenta":       "\u001b[35m",
-	"cyan":          "\u001b[36m",
-	"white":         "\u001b[37m",
-	"brightBlack":   "\u001b[30;1m",
-	"brightRed":     "\u001b[31;1m",
-	"brightGreen":   "\u001b[32;1m",
-	"brightYellow":  "\u001b[33;1m",
-	"brightBlue":    "\u001b[34;1m",
-	"brightMagenta": "\u001b[35;1m",
-	"brightCyan":    "\u001b[36;1m",
-	"brightWhite":   "\u001b[37;1m",
-}
+	bgBlack   color = "\u001b[40m"
+	bgRed     color = "\u001b[41m"
+	bgGreen   color = "\u001b[42m"
+	bgYellow  color = "\u001b[43m"
+	bgBlue    color = "\u001b[44m"
+	bgMagenta color = "\u001b[45m"
+	bgCyan    color = "\u001b[46m"
+	bgWhite   color = "\u001b[47m"
 
-var decorations = map[string]string{
-	"bold": "\u001b[1m",
-}
+	// TODO add bright bg colors
 
-var flairs = []map[string]string{
-	{"flair": "flair2", "badge": "n", "color": ""},
-	{"flair": "flair9", "badge": "tw", "color": colors["brightBlue"]},
-	{"flair": "flair13", "badge": "t1", "color": colors["brightBlue"]},
-	{"flair": "flair1", "badge": "t2", "color": colors["brightBlue"]},
-	{"flair": "flair3", "badge": "t3", "color": colors["blue"]},
-	{"flair": "flair8", "badge": "t4", "color": colors["magenta"]},
-	{"flair": "flair11", "badge": "bot2", "color": colors["brightBlack"]},
-	{"flair": "flair12", "badge": "@", "color": colors["brightCyan"]},
-	{"flair": "bot", "badge": "bot", "color": colors["yellow"]},
-	{"flair": "vip", "badge": "vip", "color": colors["green"]},
-	{"flair": "admin", "badge": "@", "color": colors["red"]},
+	fgBlack   color = "\u001b[30m"
+	fgRed     color = "\u001b[31m"
+	fgGreen   color = "\u001b[32m"
+	fgYellow  color = "\u001b[33m"
+	fgBlue    color = "\u001b[34m"
+	fgMagenta color = "\u001b[35m"
+	fgCyan    color = "\u001b[36m"
+	fgWhite   color = "\u001b[37m"
+
+	fgBrightBlack   color = "\u001b[30;1m"
+	fgBrightRed     color = "\u001b[31;1m"
+	fgBrightGreen   color = "\u001b[32;1m"
+	fgBrightYellow  color = "\u001b[33;1m"
+	fgBrightBlue    color = "\u001b[34;1m"
+	fgBrightMagenta color = "\u001b[35;1m"
+	fgBrightCyan    color = "\u001b[36;1m"
+	fgBrightWhite   color = "\u001b[37;1m"
+)
+
+// translate user tags into colors...
+var tagMap = map[string]color{
+	"black":   bgBlack,
+	"red":     bgRed,
+	"green":   bgGreen,
+	"yellow":  bgYellow,
+	"blue":    bgBlue,
+	"magenta": bgMagenta,
+	"cyan":    bgCyan,
+	"white":   bgWhite,
 }
 
 func layout(g *gocui.Gui) error {
@@ -113,7 +101,7 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 
 var helpactive = false
 
-// TODO more info?
+// TODO more info? - also size needs to adapt once more commands exist
 func showHelp(g *gocui.Gui, v *gocui.View) error {
 	if !helpactive {
 		maxX, maxY := g.Size()
@@ -158,91 +146,6 @@ func showDebug(g *gocui.Gui, v *gocui.View) error {
 	return g.DeleteView("debug")
 }
 
-func (c *chat) renderMessage(m dggchat.Message) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messagesView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		formattedDate := m.Timestamp.Format(time.Kitchen)
-
-		taggedNick := m.Sender.Nick
-		var coloredNick string
-
-		for _, flair := range flairs {
-			if contains(m.Sender.Features, flair["flair"]) {
-				taggedNick = fmt.Sprintf("[%s]%s", flair["badge"], taggedNick)
-				coloredNick = fmt.Sprintf("%s%s %s", flair["color"], taggedNick, colors["reset"])
-			}
-		}
-
-		for _, highlighted := range c.config.Highlighted {
-			if strings.EqualFold(m.Sender.Nick, highlighted) {
-				taggedNick = fmt.Sprintf("[*]%s", taggedNick)
-				coloredNick = fmt.Sprintf("%s%s %s", colors["cyan"], taggedNick, colors["reset"])
-			}
-		}
-
-		if coloredNick == "" {
-			coloredNick = fmt.Sprintf("%s%s %s", colors["reset"], taggedNick, colors["reset"])
-		}
-
-		formattedData := m.Message
-		if c.username != "" && strings.Contains(strings.ToLower(m.Message), strings.ToLower(c.username)) {
-			formattedData = fmt.Sprintf("%s%s %s", backgrounds["brightCyan"], m.Message, colors["reset"])
-		} else if strings.HasPrefix(m.Message, ">") {
-			formattedData = fmt.Sprintf("%s%s %s", colors["green"], m.Message, colors["reset"])
-		}
-
-		formattedTag := "  "
-		c.config.RLock()
-		if color, ok := c.config.Tags[strings.ToLower(m.Sender.Nick)]; ok {
-			formattedTag = fmt.Sprintf("%s  %s", backgrounds[color], colors["reset"])
-		}
-		c.config.RUnlock()
-
-		formattedMessage := fmt.Sprintf("[%s]%s%s: %s", formattedDate, formattedTag, coloredNick, formattedData)
-
-		fmt.Fprintln(messagesView, formattedMessage)
-		return nil
-	})
-}
-
-func (c *chat) renderBroadcast(b dggchat.Broadcast) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messagesView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		formattedDate := b.Timestamp.Format(time.Kitchen)
-
-		formattedMessage := fmt.Sprintf("%s[%s] %s: %s %s", colors["brightYellow"], formattedDate, " Broadcast", b.Message, colors["reset"])
-		fmt.Fprintln(messagesView, formattedMessage)
-		return nil
-	})
-}
-
-func (c *chat) renderPrivateMessage(pm dggchat.PrivateMessage) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messagesView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		formattedDate := pm.Timestamp.Format(time.Kitchen)
-
-		formattedMessage := fmt.Sprintf("[%s]  %s%s[Whisper]%s: %s %s", formattedDate, colors["brightWhite"], decorations["bold"], pm.User.Nick, pm.Message, colors["reset"])
-
-		fmt.Fprintln(messagesView, formattedMessage)
-		return nil
-	})
-}
-
 func (c *chat) renderError(errorString string) {
 	c.gui.Update(func(g *gocui.Gui) error {
 		messageView, err := g.View("messages")
@@ -251,13 +154,12 @@ func (c *chat) renderError(errorString string) {
 			return err
 		}
 
-		errorMessage := fmt.Sprintf("%s*Error sending message: %s*%s", colors["red"], errorString, colors["reset"])
+		errorMessage := fmt.Sprintf("%s*Error sending message: %s*%s", fgRed, errorString, reset)
 		fmt.Fprintln(messageView, errorMessage)
 		return nil
 	})
 }
 
-// TODO colors
 func (c *chat) renderDebug(s interface{}) {
 	if !debugActive {
 		return
@@ -275,109 +177,109 @@ func (c *chat) renderDebug(s interface{}) {
 	})
 }
 
-// TODO colors
+func (c *chat) renderMessage(m dggchat.Message) {
+
+	taggedNick := m.Sender.Nick
+	var coloredNick string
+
+	for _, flair := range c.flairs {
+		if contains(m.Sender.Features, flair.Name) {
+			taggedNick = fmt.Sprintf("[%s]%s", flair.Badge, taggedNick)
+			coloredNick = fmt.Sprintf("%s%s %s", flair.Color, taggedNick, reset)
+		}
+	}
+
+	for _, highlighted := range c.config.Highlighted {
+		if strings.EqualFold(m.Sender.Nick, highlighted) {
+			taggedNick = fmt.Sprintf("[*]%s", taggedNick)
+			coloredNick = fmt.Sprintf("%s%s %s", fgCyan, taggedNick, reset)
+		}
+	}
+
+	if coloredNick == "" {
+		coloredNick = fmt.Sprintf("%s%s %s", reset, taggedNick, reset)
+	}
+
+	formattedData := m.Message
+	if c.username != "" && strings.Contains(strings.ToLower(m.Message), strings.ToLower(c.username)) {
+		formattedData = fmt.Sprintf("%s%s %s", fgBrightCyan, m.Message, reset)
+	} else if strings.HasPrefix(m.Message, ">") {
+		formattedData = fmt.Sprintf("%s%s %s", fgGreen, m.Message, reset)
+	}
+
+	formattedTag := "   "
+	c.config.RLock()
+	if color, ok := c.config.Tags[strings.ToLower(m.Sender.Nick)]; ok {
+		formattedTag = fmt.Sprintf("%s   %s", tagMap[color], reset)
+	}
+	c.config.RUnlock()
+
+	msg := fmt.Sprintf("%s%s: %s", formattedTag, coloredNick, formattedData)
+	c.renderFormattedMessage(msg, m.Timestamp)
+	return
+}
+
+func (c *chat) renderPrivateMessage(pm dggchat.PrivateMessage) {
+	tag := fmt.Sprintf(" %s*%s ", bgWhite, reset)
+	msg := fmt.Sprintf("%s%s[PM <- %s] %s %s", tag, fgBrightWhite, pm.User.Nick, pm.Message, reset)
+	c.renderFormattedMessage(msg, pm.Timestamp)
+	return
+}
+
+func (c *chat) renderBroadcast(b dggchat.Broadcast) {
+	tag := fmt.Sprintf(" %s!%s ", fgBrightYellow, reset)
+	msg := fmt.Sprintf("%s%sBROADCAST: %s %s", tag, fgBrightYellow, b.Message, reset)
+	c.renderFormattedMessage(msg, b.Timestamp)
+	return
+}
+
 func (c *chat) renderJoin(join dggchat.RoomAction) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messageView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		joinMessage := fmt.Sprintf("JOIN: %s%s", join.User.Nick, colors["reset"])
-		fmt.Fprintln(messageView, joinMessage)
-		return nil
-	})
+	tag := fmt.Sprintf(" %s>%s ", bgGreen, reset)
+	msg := fmt.Sprintf("%s%s%s joined!%s", tag, fgGreen, join.User.Nick, reset)
+	c.renderFormattedMessage(msg, join.Timestamp)
+	return
 }
 
-// TODO colors
 func (c *chat) renderQuit(quit dggchat.RoomAction) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messageView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		quitMessage := fmt.Sprintf("QUIT: %s%s", quit.User.Nick, colors["reset"])
-		fmt.Fprintln(messageView, quitMessage)
-		return nil
-	})
+	tag := fmt.Sprintf(" %s<%s ", bgRed, reset)
+	msg := fmt.Sprintf("%s%s%s left.%s", tag, fgRed, quit.User.Nick, reset)
+	c.renderFormattedMessage(msg, quit.Timestamp)
+	return
 }
 
-// TODO colors
 func (c *chat) renderMute(mute dggchat.Mute) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messageView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		joinMessage := fmt.Sprintf("MUTE: %s muted by %s %s", mute.Target.Nick, mute.Sender.Nick, colors["reset"])
-		fmt.Fprintln(messageView, joinMessage)
-		return nil
-	})
+	tag := fmt.Sprintf(" %s!%s ", bgYellow, reset)
+	msg := fmt.Sprintf("%s%s%s muted by %s%s", tag, fgYellow, mute.Target.Nick, mute.Sender.Nick, reset)
+	c.renderFormattedMessage(msg, mute.Timestamp)
+	return
 }
 
-// TODO colors
 func (c *chat) renderUnmute(mute dggchat.Mute) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messageView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		joinMessage := fmt.Sprintf("UNMUTE: %s unmuted by %s %s", mute.Target.Nick, mute.Sender.Nick, colors["reset"])
-		fmt.Fprintln(messageView, joinMessage)
-		return nil
-	})
+	tag := fmt.Sprintf(" %s!%s ", bgYellow, reset)
+	msg := fmt.Sprintf("%s%s%s unmuted by %s%s", tag, fgYellow, mute.Target.Nick, mute.Sender.Nick, reset)
+	c.renderFormattedMessage(msg, mute.Timestamp)
+	return
 }
 
-// TODO colors
 func (c *chat) renderBan(ban dggchat.Ban) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messageView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		joinMessage := fmt.Sprintf("BAN: %s banned by %s %s", ban.Target.Nick, ban.Sender.Nick, colors["reset"])
-		fmt.Fprintln(messageView, joinMessage)
-		return nil
-	})
+	tag := fmt.Sprintf(" %s!%s ", bgRed, reset)
+	msg := fmt.Sprintf("%s%s%s banned by %s%s", tag, fgRed, ban.Target.Nick, ban.Sender.Nick, reset)
+	c.renderFormattedMessage(msg, ban.Timestamp)
+	return
 }
 
-// TODO colors
-func (c *chat) renderUnban(ban dggchat.Ban) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messageView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		joinMessage := fmt.Sprintf("UNBAN: %s unbanned by %s %s", ban.Target.Nick, ban.Sender.Nick, colors["reset"])
-		fmt.Fprintln(messageView, joinMessage)
-		return nil
-	})
+func (c *chat) renderUnban(unban dggchat.Ban) {
+	tag := fmt.Sprintf(" %s!%s ", bgRed, reset)
+	msg := fmt.Sprintf("%s%s%s unbanned by %s%s", tag, fgRed, unban.Target.Nick, unban.Sender.Nick, reset)
+	c.renderFormattedMessage(msg, unban.Timestamp)
+	return
 }
 
-// TODO colors
 func (c *chat) renderSubOnly(so dggchat.SubOnly) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messageView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		joinMessage := fmt.Sprintf("SUBONLY: %s changed subonly mode to: %t %s", so.Sender.Nick, so.Active, colors["reset"])
-		fmt.Fprintln(messageView, joinMessage)
-		return nil
-	})
+	tag := fmt.Sprintf(" %s$%s ", bgMagenta, reset)
+	msg := fmt.Sprintf("%s%s%s changed subonly mode to: %t %s", tag, fgMagenta, so.Sender.Nick, so.Active, reset)
+	c.renderFormattedMessage(msg, so.Timestamp)
+	return
 }
 
 func (c *chat) renderUsers(dggusers []dggchat.User) {
@@ -389,21 +291,31 @@ func (c *chat) renderUsers(dggusers []dggchat.User) {
 		}
 
 		userView.Title = fmt.Sprintf("%d users:", len(dggusers))
-		sortUsers(dggusers)
+		c.sortUsers(dggusers)
 
 		var users string
 		for _, u := range dggusers {
-			_, flair := highestFlair(u)
-			color := colors["reset"]
-
-			if flair != nil {
-				color = flair["color"]
-			}
-			users += fmt.Sprintf("%s%s%s\n", color, u.Nick, colors["reset"])
+			_, flair := c.highestFlair(u)
+			users += fmt.Sprintf("%s%s%s\n", flair.Color, u.Nick, reset)
 		}
 
 		userView.Clear()
 		fmt.Fprintln(userView, users)
+		return nil
+	})
+}
+
+func (c *chat) renderFormattedMessage(s string, t time.Time) {
+	c.gui.Update(func(g *gocui.Gui) error {
+		messageView, err := g.View("messages")
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		formattedDate := t.Format(c.config.Timeformat)
+		m := fmt.Sprintf("[%s]%s", formattedDate, s)
+		fmt.Fprintln(messageView, m)
 		return nil
 	})
 }
@@ -420,32 +332,6 @@ func indexOf(s []string, e string) int {
 	}
 
 	return -1
-}
-
-func sortUsers(u []dggchat.User) {
-	sort.SliceStable(u, func(i, j int) bool {
-		iUser := u[i]
-		jUser := u[j]
-
-		iIndex, _ := highestFlair(iUser)
-		jIndex, _ := highestFlair(jUser)
-
-		return iIndex > jIndex
-	})
-}
-
-func highestFlair(u dggchat.User) (int, map[string]string) {
-	index := -1
-	var highestFlair map[string]string
-
-	for i, flair := range flairs {
-		if contains(u.Features, flair["flair"]) {
-			index = i
-			highestFlair = flair
-		}
-	}
-
-	return index, highestFlair
 }
 
 func historyUp(g *gocui.Gui, v *gocui.View, chat *chat) error {
