@@ -42,8 +42,7 @@ func main() {
 	var config config
 	err = json.Unmarshal(file, &config)
 	if err != nil {
-		log.Println("malformed configuration file:")
-		log.Fatalln(err)
+		log.Fatalf("malformed configuration file: %v\n", err)
 	}
 
 	g, err := gocui.NewGui(gocui.OutputNormal)
@@ -53,10 +52,14 @@ func main() {
 	defer g.Close()
 
 	g.SetManagerFunc(layout)
-	g.Mouse = false
+	g.Mouse = true
 
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
 		log.Fatalln(err)
+	}
+
+	if err := g.SetKeybinding("", gocui.KeyF1, gocui.ModNone, showHelp); err != nil {
+		log.Panicln(err)
 	}
 
 	chat, err := newChat(&config, g)
@@ -74,6 +77,34 @@ func main() {
 
 	if err := g.SetKeybinding("input", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		err = historyDown(g, v, chat)
+		return err
+	}); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("messages", gocui.MouseWheelUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		err = scroll(-1, chat, "messages")
+		return err
+	}); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("messages", gocui.MouseWheelDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		err = scroll(1, chat, "messages")
+		return err
+	}); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("users", gocui.MouseWheelUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		err = scroll(-1, chat, "users")
+		return err
+	}); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("users", gocui.MouseWheelDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		err = scroll(1, chat, "users")
 		return err
 	}); err != nil {
 		log.Panicln(err)

@@ -111,6 +111,33 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 	return gocui.ErrQuit
 }
 
+var helpactive = false
+
+// TODO more info?
+func showHelp(g *gocui.Gui, v *gocui.View) error {
+	if !helpactive {
+		maxX, maxY := g.Size()
+		if messages, err := g.SetView("help", maxX/4*2, 0, maxX-20, maxY/3); err != nil {
+			if err != gocui.ErrUnknownView {
+				return err
+			}
+			messages.Title = " help: "
+			messages.Wrap = true
+			fmt.Fprint(messages, `
+Commands:
+    /(un)tag       user color
+    /(un)highlight user
+    /w(hisper)     user message
+`)
+			helpactive = !helpactive
+			g.SetViewOnTop("help")
+		}
+		return nil
+	}
+	helpactive = !helpactive
+	return g.DeleteView("help")
+}
+
 func (c *chat) renderMessage(m dggchat.Message) {
 	c.gui.Update(func(g *gocui.Gui) error {
 		messagesView, err := g.View("messages")
@@ -420,5 +447,25 @@ func historyDown(g *gocui.Gui, v *gocui.View, chat *chat) error {
 	v.SetCursor(0, 0)
 	v.Write([]byte(chat.messageHistory[chat.historyIndex]))
 	v.MoveCursor(len(chat.messageHistory[chat.historyIndex]), 0, true)
+	return nil
+}
+
+func scroll(dy int, chat *chat, view string) error {
+	// Grab the view that we want to scroll.
+	v, _ := chat.gui.View(view)
+
+	// Get the size and position of the view.
+	_, y := v.Size()
+	ox, oy := v.Origin()
+
+	// If we're at the bottom...
+	if oy+dy > strings.Count(v.ViewBuffer(), "\n")-y-1 && view != "users" {
+		// Set autoscroll to normal again.
+		v.Autoscroll = true
+	} else {
+		// Set autoscroll to false and scroll.
+		v.Autoscroll = false
+		v.SetOrigin(ox, oy+dy)
+	}
 	return nil
 }
