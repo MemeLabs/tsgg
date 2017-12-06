@@ -81,8 +81,7 @@ func main() {
 
 	chat, err := newChat(&config, g)
 	if err != nil {
-		log.Println(err)
-		return
+		log.Panicln(err)
 	}
 
 	if config.LegacyFlairs {
@@ -103,47 +102,12 @@ func main() {
 		log.Panicln(err)
 	}
 
-	if err := g.SetKeybinding("messages", gocui.MouseWheelUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = scroll(-chat.config.ScrollingSpeed, chat, "messages")
-		return err
-	}); err != nil {
-		log.Panicln(err)
-	}
+	chat.mustAddScroll("messages", chat.config.PageUpDownSpeed, gocui.KeyPgup, gocui.KeyPgdn)
+	chat.mustAddScroll("messages", chat.config.ScrollingSpeed, gocui.MouseWheelUp, gocui.MouseWheelDown)
 
-	if err := g.SetKeybinding("messages", gocui.MouseWheelDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = scroll(chat.config.ScrollingSpeed, chat, "messages")
-		return err
-	}); err != nil {
-		log.Panicln(err)
-	}
-
-	if err := g.SetKeybinding("", gocui.KeyPgup, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = scroll(-chat.config.PageUpDownSpeed, chat, "messages")
-		return err
-	}); err != nil {
-		log.Panicln(err)
-	}
-
-	if err := g.SetKeybinding("", gocui.KeyPgdn, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = scroll(chat.config.PageUpDownSpeed, chat, "messages")
-		return err
-	}); err != nil {
-		log.Panicln(err)
-	}
-
-	if err := g.SetKeybinding("users", gocui.MouseWheelUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = scroll(-1, chat, "users")
-		return err
-	}); err != nil {
-		log.Panicln(err)
-	}
-
-	if err := g.SetKeybinding("users", gocui.MouseWheelDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = scroll(1, chat, "users")
-		return err
-	}); err != nil {
-		log.Panicln(err)
-	}
+	chat.mustAddScroll("users", chat.config.ScrollingSpeed, gocui.MouseWheelUp, gocui.MouseWheelDown)
+	chat.mustAddScroll("help", 1, gocui.MouseWheelUp, gocui.MouseWheelDown)
+	chat.mustAddScroll("debug", 1, gocui.MouseWheelUp, gocui.MouseWheelDown)
 
 	err = g.SetKeybinding("input", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 
@@ -228,6 +192,7 @@ func main() {
 	// TODO need to wait for lib to receive first NAMES message to be properly "initialized"
 	// maybe add a handler for this instead
 	for {
+		// TODO need to check here if banned, or connection unexpectedly closed, otherwise we loop indefinitely
 		if len(chat.Session.GetUsers()) != 0 {
 			break
 		}
@@ -254,4 +219,20 @@ func (cfg *config) save() error {
 		return fmt.Errorf("error saving config: %v", err)
 	}
 	return nil
+}
+
+func (c *chat) mustAddScroll(view string, speed int, up gocui.Key, down gocui.Key) {
+	var err error
+	err = c.gui.SetKeybinding(view, down, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		return scroll(speed, c, view)
+	})
+	if err != nil {
+		log.Panicln(err)
+	}
+	err = c.gui.SetKeybinding(view, up, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+		return scroll(-speed, c, view)
+	})
+	if err != nil {
+		log.Panicln(err)
+	}
 }

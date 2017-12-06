@@ -66,7 +66,7 @@ func (c *chat) handleInput(message string) {
 
 	var err error
 
-	//TODO cannot send message starting with "/"
+	// TODO cannot send message starting with "/"
 	if message[:1] == "/" {
 		err = c.handleCommand(message)
 	} else {

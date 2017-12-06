@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
 	"time"
 
@@ -77,9 +78,17 @@ func layout(g *gocui.Gui) error {
 		}
 		messages.Title = " help: "
 		messages.Wrap = true
+
+		// command map is unordered, we want the help menu to be stable
+		keys := make([]string, 0, len(commands))
+		for key := range commands {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+
 		fmt.Fprint(messages, "Commands:\n")
-		for k, v := range commands {
-			fmt.Fprintf(messages, "  - %s %s\n", k, v.usage)
+		for _, k := range keys {
+			fmt.Fprintf(messages, "  - %s %s\n", k, commands[k].usage)
 		}
 	}
 
@@ -122,7 +131,6 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 
 var helpactive = false
 
-// TODO size needs to adapt to amount of commands
 func showHelp(g *gocui.Gui, v *gocui.View) error {
 	if !helpactive {
 		helpactive = !helpactive
@@ -276,6 +284,13 @@ func (c *chat) renderSubOnly(so dggchat.SubOnly) {
 	c.renderFormattedMessage(msg, so.Timestamp)
 }
 
+func (c *chat) renderCommand(s string) {
+	tm := time.Unix(time.Now().Unix()/1000, 0)
+	tag := fmt.Sprintf(" %sI%s ", bgWhite, reset)
+	msg := fmt.Sprintf("%s%s%s%s", tag, fgWhite, s, reset)
+	c.renderFormattedMessage(msg, tm)
+}
+
 func (c *chat) renderUsers(dggusers []dggchat.User) {
 	c.gui.Update(func(g *gocui.Gui) error {
 		userView, err := g.View("users")
@@ -369,18 +384,31 @@ func scroll(dy int, chat *chat, view string) error {
 
 	// If we're at the bottom...
 	lines := strings.Count(v.ViewBuffer(), "\n") - y - 1
-	if ty > lines && view != "users" {
+
+	chat.renderDebug(fmt.Sprintf("scroll: ox: %d, oy: %d, dy: %d, y: %d, lines: %d", ox, oy, dy, y, lines))
+	if ty > lines && view == "messages" {
 		// Set autoscroll to normal again.
 		v.Autoscroll = true
 		return nil
 	}
 	// Set autoscroll to false and scroll.
 	v.Autoscroll = false
-	chat.renderDebug(fmt.Sprintf("ox: %d, oy: %d, dy: %d, y: %d, lines: %d", ox, oy, dy, y, lines))
+
+	// If the scrolling "speed" (dy) is set too high, make sure we don't scroll into negative.
 	if ty < 0 {
-		chat.renderDebug("setting ty: %d to 0")
 		ty = 0
 	}
+
+	// Do not scroll at all if the view is not full.
+	if (view == "users" || view == "help" || view == "debug") && strings.Count(v.Buffer(), "\n") < y {
+		ty = 0
+	}
+
+	// If the end (by amount of lines) of a view is reached, do not scroll even further down into nothingness.
+	if oy > lines {
+		ty = lines
+	}
+
 	v.SetOrigin(ox, ty)
 
 	return nil

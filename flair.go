@@ -1,5 +1,6 @@
 package main
 
+// TODO cleanup, some still missing too...
 // flair9 - twitchsub
 // flair13 - t1
 // flair1 - t2

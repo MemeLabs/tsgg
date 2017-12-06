@@ -58,7 +58,13 @@ func addHighlight(c *chat, tokens []string) error {
 	c.config.Highlighted = append(c.config.Highlighted, user)
 	c.config.Unlock()
 
-	return c.config.save()
+	err := c.config.save()
+	if err != nil {
+		return err
+	}
+	msg := fmt.Sprintf("Highlighted %s", user)
+	c.renderCommand(msg)
+	return nil
 }
 
 func removeHighlight(c *chat, tokens []string) error {
@@ -73,7 +79,13 @@ func removeHighlight(c *chat, tokens []string) error {
 	for i := 0; i < len(c.config.Highlighted); i++ {
 		if strings.ToLower(c.config.Highlighted[i]) == user {
 			c.config.Highlighted = append(c.config.Highlighted[:i], c.config.Highlighted[i+1:]...)
-			return c.config.save()
+			err := c.config.save()
+			if err != nil {
+				return err
+			}
+			msg := fmt.Sprintf("Unhighlighted %s", user)
+			c.renderCommand(msg)
+			return nil
 		}
 	}
 
@@ -100,7 +112,13 @@ func addTag(c *chat, tokens []string) error {
 	c.config.Tags[user] = color
 	c.config.Unlock()
 
-	return c.config.save()
+	err := c.config.save()
+	if err != nil {
+		return err
+	}
+	msg := fmt.Sprintf("Tagged %s", user)
+	c.renderCommand(msg)
+	return nil
 }
 
 func removeTag(c *chat, tokens []string) error {
@@ -115,7 +133,13 @@ func removeTag(c *chat, tokens []string) error {
 
 	if _, ok := c.config.Tags[user]; ok {
 		delete(c.config.Tags, user)
-		return c.config.save()
+		err := c.config.save()
+		if err != nil {
+			return err
+		}
+		msg := fmt.Sprintf("Untagged %s", user)
+		c.renderCommand(msg)
+		return nil
 	}
 
 	return fmt.Errorf("%s is not tagged", user)
@@ -216,26 +240,52 @@ func sendWhisper(c *chat, tokens []string) error {
 }
 
 func addIgnore(c *chat, tokens []string) error {
-	if len(tokens) < 2 {
+	if len(tokens) > 2 {
 		return errors.New("Usage: /ignore user")
+	}
+
+	c.config.Lock()
+	defer c.config.Unlock()
+
+	if len(tokens) == 1 {
+		ignores := strings.Join(c.config.Ignores, ", ")
+		msg := fmt.Sprintf("Ignoring the following people: %s", ignores)
+		c.renderCommand(msg)
+		return nil
 	}
 	user := strings.ToLower(tokens[1])
 	if !contains(c.config.Ignores, user) {
 		c.config.Ignores = append(c.config.Ignores, user)
-		return c.config.save()
+		err := c.config.save()
+		if err != nil {
+			return err
+		}
+		msg := fmt.Sprintf("Ignoring %s", user)
+		c.renderCommand(msg)
+		return nil
 	}
 	return fmt.Errorf("%s is already ignored", user)
 }
 
 func removeIgnore(c *chat, tokens []string) error {
-	if len(tokens) < 2 {
+	if len(tokens) != 2 {
 		return errors.New("Usage: /unignore user")
 	}
 	user := strings.ToLower(tokens[1])
+
+	c.config.Lock()
+	defer c.config.Unlock()
+
 	for i, u := range c.config.Ignores {
 		if u == user {
 			c.config.Ignores = append(c.config.Ignores[:i], c.config.Ignores[i+1:]...)
-			return c.config.save()
+			err := c.config.save()
+			if err != nil {
+				return err
+			}
+			msg := fmt.Sprintf("%s removed from your ignore list", u)
+			c.renderCommand(msg)
+			return nil
 		}
 	}
 	return fmt.Errorf("%s is not ignored", user)
