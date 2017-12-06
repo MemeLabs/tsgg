@@ -63,7 +63,7 @@ var legacyflairs = []flair{
 	},
 	flair{
 		Name:  "flair12",
-		Badge: "@",
+		Badge: "B",
 		Color: fgBrightCyan,
 	},
 	flair{
@@ -126,8 +126,8 @@ var newflairs = []flair{
 	},
 	flair{
 		Name:  "flair12",
-		Badge: "@",
-		Color: fgBrightCyan,
+		Badge: "B",
+		Color: fgYellow,
 	},
 	flair{
 		Name:  "bot",
