@@ -214,70 +214,60 @@ func (c *chat) renderMessage(m dggchat.Message) {
 
 	msg := fmt.Sprintf("%s%s: %s", formattedTag, coloredNick, formattedData)
 	c.renderFormattedMessage(msg, m.Timestamp)
-	return
 }
 
 func (c *chat) renderPrivateMessage(pm dggchat.PrivateMessage) {
 	tag := fmt.Sprintf(" %s*%s ", bgWhite, reset)
 	msg := fmt.Sprintf("%s%s[PM <- %s] %s %s", tag, fgBrightWhite, pm.User.Nick, pm.Message, reset)
 	c.renderFormattedMessage(msg, pm.Timestamp)
-	return
 }
 
 func (c *chat) renderBroadcast(b dggchat.Broadcast) {
 	tag := fmt.Sprintf(" %s!%s ", fgBrightYellow, reset)
 	msg := fmt.Sprintf("%s%sBROADCAST: %s %s", tag, fgBrightYellow, b.Message, reset)
 	c.renderFormattedMessage(msg, b.Timestamp)
-	return
 }
 
 func (c *chat) renderJoin(join dggchat.RoomAction) {
 	tag := fmt.Sprintf(" %s>%s ", bgGreen, reset)
 	msg := fmt.Sprintf("%s%s%s joined!%s", tag, fgGreen, join.User.Nick, reset)
 	c.renderFormattedMessage(msg, join.Timestamp)
-	return
 }
 
 func (c *chat) renderQuit(quit dggchat.RoomAction) {
 	tag := fmt.Sprintf(" %s<%s ", bgRed, reset)
 	msg := fmt.Sprintf("%s%s%s left.%s", tag, fgRed, quit.User.Nick, reset)
 	c.renderFormattedMessage(msg, quit.Timestamp)
-	return
 }
 
 func (c *chat) renderMute(mute dggchat.Mute) {
 	tag := fmt.Sprintf(" %s!%s ", bgYellow, reset)
 	msg := fmt.Sprintf("%s%s%s muted by %s%s", tag, fgYellow, mute.Target.Nick, mute.Sender.Nick, reset)
 	c.renderFormattedMessage(msg, mute.Timestamp)
-	return
 }
 
 func (c *chat) renderUnmute(mute dggchat.Mute) {
 	tag := fmt.Sprintf(" %s!%s ", bgYellow, reset)
 	msg := fmt.Sprintf("%s%s%s unmuted by %s%s", tag, fgYellow, mute.Target.Nick, mute.Sender.Nick, reset)
 	c.renderFormattedMessage(msg, mute.Timestamp)
-	return
 }
 
 func (c *chat) renderBan(ban dggchat.Ban) {
 	tag := fmt.Sprintf(" %s!%s ", bgRed, reset)
 	msg := fmt.Sprintf("%s%s%s banned by %s%s", tag, fgRed, ban.Target.Nick, ban.Sender.Nick, reset)
 	c.renderFormattedMessage(msg, ban.Timestamp)
-	return
 }
 
 func (c *chat) renderUnban(unban dggchat.Ban) {
 	tag := fmt.Sprintf(" %s!%s ", bgRed, reset)
 	msg := fmt.Sprintf("%s%s%s unbanned by %s%s", tag, fgRed, unban.Target.Nick, unban.Sender.Nick, reset)
 	c.renderFormattedMessage(msg, unban.Timestamp)
-	return
 }
 
 func (c *chat) renderSubOnly(so dggchat.SubOnly) {
 	tag := fmt.Sprintf(" %s$%s ", bgMagenta, reset)
 	msg := fmt.Sprintf("%s%s%s changed subonly mode to: %t %s", tag, fgMagenta, so.Sender.Nick, so.Active, reset)
 	c.renderFormattedMessage(msg, so.Timestamp)
-	return
 }
 
 func (c *chat) renderUsers(dggusers []dggchat.User) {
