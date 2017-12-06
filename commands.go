@@ -8,23 +8,27 @@ import (
 	"time"
 )
 
-// TODO more fields maybe?
 type command struct {
-	c           func(*chat, []string) error
-	usage       string
-	description string
+	c     func(*chat, []string) error
+	usage string
 }
 
-// TODO fill out or remove if unnecessary
+// TODO need to refactor this... usage strings incomplete/double
 var commands = map[string]command{
-	"/w":           {sendWhisper, "user message", ""},
-	"/whisper":     {sendWhisper, "user message", ""},
-	"/mute":        {sendMute, "user [duration in seconds]", ""},
-	"/unmute":      {sendUnmute, "user", ""},
-	"/highlight":   {addHighlight, "user", ""},
-	"/unhighlight": {removeHighlight, "user", ""},
-	"/tag":         {addTag, "user color", ""},
-	"/untag":       {removeTag, "user", ""},
+	"/w":           {sendWhisper, "user message"},
+	"/whisper":     {sendWhisper, "user message"},
+	"/me":          {sendAction, "message"},
+	"/tag":         {addTag, "user color"},
+	"/untag":       {removeTag, "user"},
+	"/highlight":   {addHighlight, "user"},
+	"/unhighlight": {removeHighlight, "user"},
+	"/mute":        {sendMute, "user [time in seconds]"},
+	"/unmute":      {sendUnmute, "user"},
+	"/ban":         {sendBan, "user reason [time (in seconds)]"},
+	"/ipban":       {sendBan, "user reason [time (in seconds)]"},
+	"/unban":       {sendUnban, "user"},
+	"/subonly":     {sendSubOnly, "{on,off}"},
+	"/broadcast":   {sendBroadcast, "message"},
 }
 
 func (c *chat) handleCommand(message string) error {
@@ -45,7 +49,7 @@ func addHighlight(c *chat, tokens []string) error {
 
 	user := strings.ToLower(tokens[1])
 	if contains(c.config.Highlighted, user) {
-		return errors.New(user + " is already highlighted")
+		return fmt.Errorf("%s is already highlighted", user)
 	}
 
 	c.config.Lock()
@@ -71,7 +75,7 @@ func removeHighlight(c *chat, tokens []string) error {
 		}
 	}
 
-	return errors.New("User: " + user + " is not in highlight list")
+	return fmt.Errorf("User: %s is not in highlight list", user)
 }
 
 func addTag(c *chat, tokens []string) error {
@@ -84,7 +88,7 @@ func addTag(c *chat, tokens []string) error {
 
 	_, ok := tagMap[color]
 	if !ok {
-		return errors.New("invalid color: " + color)
+		return fmt.Errorf("invalid color: %s", color)
 	}
 
 	c.config.Lock()
@@ -98,7 +102,7 @@ func addTag(c *chat, tokens []string) error {
 }
 
 func removeTag(c *chat, tokens []string) error {
-	if len(tokens) < 2 {
+	if len(tokens) != 2 {
 		return errors.New("Usage: /untag user")
 	}
 
@@ -112,16 +116,16 @@ func removeTag(c *chat, tokens []string) error {
 		return c.config.save()
 	}
 
-	return errors.New(user + " is not tagged")
+	return fmt.Errorf("%s is not tagged", user)
 }
 
 func sendMute(c *chat, tokens []string) error {
-	if len(tokens) < 2 {
-		return errors.New("Usage: /mute user [duration in seconds]")
+	if len(tokens) < 2 || len(tokens) > 3 {
+		return errors.New("Usage: /mute user [time in seconds]")
 	}
 
 	var err error
-	duration := int64(60)
+	var duration int64 //server chooses default duration
 
 	if len(tokens) >= 3 {
 		duration, err = strconv.ParseInt(strings.TrimSpace(tokens[2]), 10, 64)
@@ -134,11 +138,63 @@ func sendMute(c *chat, tokens []string) error {
 }
 
 func sendUnmute(c *chat, tokens []string) error {
-	if len(tokens) < 2 {
-		return errors.New("Usage: /mute user")
+	if len(tokens) != 2 {
+		return errors.New("Usage: /unmute user")
 	}
 
 	return c.Session.SendUnmute(tokens[1])
+}
+
+func sendBan(c *chat, tokens []string) error {
+	if len(tokens) < 3 || len(tokens) > 4 {
+		return errors.New("Usage: /[ip]ban user reason [time (in seconds)]")
+	}
+
+	var err error
+	var duration int64 //server chooses default duration
+	banip := tokens[0] == "/ipban"
+
+	if len(tokens) == 4 {
+		duration, err = strconv.ParseInt(strings.TrimSpace(tokens[3]), 10, 64)
+		if err != nil {
+			return err
+		}
+	}
+
+	return c.Session.SendBan(tokens[1], tokens[2], time.Duration(duration)*time.Second, banip)
+}
+
+func sendUnban(c *chat, tokens []string) error {
+	if len(tokens) != 2 {
+		return errors.New("Usage: /unban user")
+	}
+
+	return c.Session.SendUnban(tokens[1])
+}
+
+func sendSubOnly(c *chat, tokens []string) error {
+	so := tokens[1]
+	if len(tokens) != 2 || (so != "on" && so != "off") {
+		return errors.New("Usage: /subonly {on,off}")
+	}
+
+	subonly := so == "on"
+	return c.Session.SendSubOnly(subonly)
+}
+
+func sendAction(c *chat, tokens []string) error {
+	if len(tokens) < 2 {
+		return errors.New("Usage: /me message")
+	}
+	return c.Session.SendAction(tokens[1])
+}
+
+func sendBroadcast(c *chat, tokens []string) error {
+	if len(tokens) < 2 {
+		return errors.New("Usage: /broadcast message")
+	}
+	//TODO dggchat
+	return errors.New("not implemented")
 }
 
 func sendWhisper(c *chat, tokens []string) error {
