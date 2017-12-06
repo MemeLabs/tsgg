@@ -122,7 +122,7 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 
 var helpactive = false
 
-// TODO more info? - also size needs to adapt once more commands exist
+// TODO size needs to adapt to amount of commands
 func showHelp(g *gocui.Gui, v *gocui.View) error {
 	if !helpactive {
 		helpactive = !helpactive
@@ -136,7 +136,6 @@ func showHelp(g *gocui.Gui, v *gocui.View) error {
 
 var debugActive = false
 
-// TODO more info?
 func showDebug(g *gocui.Gui, v *gocui.View) error {
 	if !debugActive {
 		debugActive = !debugActive
