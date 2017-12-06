@@ -24,6 +24,7 @@ type config struct {
 	PageUpDownSpeed int               `json:"page_up_down_Speed"`
 	Highlighted     []string          `json:"highlighted"`
 	Tags            map[string]string `json:"tags"`
+	Ignores         []string          `json:"ignores"`
 	ShowJoinLeave   bool              `json:"showjoinleave"`
 	LegacyFlairs    bool              `json:"legacyflairs"`
 	sync.RWMutex

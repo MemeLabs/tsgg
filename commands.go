@@ -22,6 +22,8 @@ var commands = map[string]command{
 	"/untag":       {removeTag, "user"},
 	"/highlight":   {addHighlight, "user"},
 	"/unhighlight": {removeHighlight, "user"},
+	"/ignore":      {addIgnore, "user"},
+	"/unignore":    {removeIgnore, "user"},
 	"/mute":        {sendMute, "user [time in seconds]"},
 	"/unmute":      {sendUnmute, "user"},
 	"/ban":         {sendBan, "user reason [time (in seconds)]"},
@@ -211,4 +213,30 @@ func sendWhisper(c *chat, tokens []string) error {
 	c.Session.SendPrivateMessage(nick, message)
 	c.renderFormattedMessage(msg, tm)
 	return nil
+}
+
+func addIgnore(c *chat, tokens []string) error {
+	if len(tokens) < 2 {
+		return errors.New("Usage: /ignore user")
+	}
+	user := strings.ToLower(tokens[1])
+	if !contains(c.config.Ignores, user) {
+		c.config.Ignores = append(c.config.Ignores, user)
+		return c.config.save()
+	}
+	return fmt.Errorf("%s is already ignored", user)
+}
+
+func removeIgnore(c *chat, tokens []string) error {
+	if len(tokens) < 2 {
+		return errors.New("Usage: /unignore user")
+	}
+	user := strings.ToLower(tokens[1])
+	for i, u := range c.config.Ignores {
+		if u == user {
+			c.config.Ignores = append(c.config.Ignores[:i], c.config.Ignores[i+1:]...)
+			return c.config.save()
+		}
+	}
+	return fmt.Errorf("%s is not ignored", user)
 }

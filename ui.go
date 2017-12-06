@@ -178,6 +178,12 @@ func (c *chat) renderDebug(s interface{}) {
 func (c *chat) renderMessage(m dggchat.Message) {
 
 	taggedNick := m.Sender.Nick
+
+	// don't show ignored users
+	if contains(c.config.Ignores, strings.ToLower(taggedNick)) {
+		return
+	}
+
 	var coloredNick string
 
 	for _, flair := range c.flairs {
