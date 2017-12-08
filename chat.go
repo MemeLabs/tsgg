@@ -12,12 +12,15 @@ import (
 const maxChatHistory = 10
 
 type chat struct {
-	config   *config
-	gui      *gocui.Gui
-	username string
-	Session  *dggchat.Session
-	flairs   []flair
-	emotes   []string
+	config     *config
+	username   string
+	Session    *dggchat.Session
+	flairs     []flair
+	emotes     []string
+	guiwrapper *guiwrapper
+
+	helpactive  bool
+	debugActive bool
 
 	messageHistory []string
 	historyIndex   int
@@ -43,7 +46,6 @@ func newChat(config *config, g *gocui.Gui) (*chat, error) {
 
 	chat := &chat{
 		config:         config,
-		gui:            g,
 		messageHistory: []string{},
 		historyIndex:   -1,
 		tabIndex:       -1,
@@ -51,6 +53,16 @@ func newChat(config *config, g *gocui.Gui) (*chat, error) {
 		username:       config.Username,
 		Session:        dgg,
 		flairs:         newflairs,
+		guiwrapper: &guiwrapper{
+			gui:        g,
+			messages:   []*guimessage{},
+			maxlines:   config.Maxlines,
+			timeformat: config.Timeformat,
+		},
+	}
+
+	if config.LegacyFlairs {
+		chat.flairs = legacyflairs
 	}
 
 	// don't wait for emotes to load
@@ -66,8 +78,10 @@ func (c *chat) handleInput(message string) {
 
 	var err error
 
-	// TODO cannot send message starting with "/"
-	if message[:1] == "/" {
+	// ability to send messages starting with "/"
+	if len(message) >= 2 && message[:2] == "//" {
+		err = c.Session.SendMessage(message[1:])
+	} else if message[:1] == "/" {
 		err = c.handleCommand(message)
 	} else {
 		err = c.Session.SendMessage(message)
@@ -75,7 +89,7 @@ func (c *chat) handleInput(message string) {
 
 	if err != nil {
 		c.renderError(err.Error())
-		// don't return, append message even on error
+		// don't return on error, append message to history
 	}
 
 	if len(c.messageHistory) > (maxChatHistory - 1) {

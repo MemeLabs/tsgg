@@ -67,36 +67,32 @@ func main() {
 	g.SetManagerFunc(layout)
 	g.Mouse = true
 
-	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
-		log.Fatalln(err)
-	}
-
-	if err := g.SetKeybinding("", gocui.KeyF1, gocui.ModNone, showHelp); err != nil {
-		log.Panicln(err)
-	}
-
-	if err := g.SetKeybinding("", gocui.KeyF12, gocui.ModNone, showDebug); err != nil {
-		log.Panicln(err)
-	}
-
 	chat, err := newChat(&config, g)
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	if config.LegacyFlairs {
-		chat.flairs = legacyflairs
+	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
+		log.Fatalln(err)
+	}
+
+	if err := g.SetKeybinding("", gocui.KeyF1, gocui.ModNone, chat.showHelp); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("", gocui.KeyF12, gocui.ModNone, chat.showDebug); err != nil {
+		log.Panicln(err)
 	}
 
 	if err := g.SetKeybinding("input", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = historyUp(g, v, chat)
+		err = chat.historyUp(g, v)
 		return err
 	}); err != nil {
 		log.Panicln(err)
 	}
 
 	if err := g.SetKeybinding("input", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = historyDown(g, v, chat)
+		err = chat.historyDown(g, v)
 		return err
 	}); err != nil {
 		log.Panicln(err)
@@ -142,12 +138,10 @@ func main() {
 		log.Panicln(err)
 	}
 
-	err = g.SetKeybinding("input", gocui.KeyTab, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	if err := g.SetKeybinding("input", gocui.KeyTab, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		chat.tabComplete(v)
 		return nil
-	})
-
-	if err != nil {
+	}); err != nil {
 		log.Panicln(err)
 	}
 
@@ -219,6 +213,10 @@ func main() {
 
 }
 
+func quit(g *gocui.Gui, v *gocui.View) error {
+	return gocui.ErrQuit
+}
+
 func (cfg *config) save() error {
 
 	d, err := json.MarshalIndent(&cfg, "", "\t")
@@ -226,7 +224,7 @@ func (cfg *config) save() error {
 		return fmt.Errorf("error marshaling config: %v", err)
 	}
 
-	err = ioutil.WriteFile(configFile, d, 0755)
+	err = ioutil.WriteFile(configFile, d, 0600)
 	if err != nil {
 		return fmt.Errorf("error saving config: %v", err)
 	}
@@ -235,13 +233,13 @@ func (cfg *config) save() error {
 
 func (c *chat) mustAddScroll(view string, speed int, up gocui.Key, down gocui.Key) {
 	var err error
-	err = c.gui.SetKeybinding(view, down, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	err = c.guiwrapper.gui.SetKeybinding(view, down, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		return scroll(speed, c, view)
 	})
 	if err != nil {
 		log.Panicln(err)
 	}
-	err = c.gui.SetKeybinding(view, up, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	err = c.guiwrapper.gui.SetKeybinding(view, up, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		return scroll(-speed, c, view)
 	})
 	if err != nil {

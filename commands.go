@@ -24,13 +24,25 @@ var commands = map[string]command{
 	"/unhighlight": {removeHighlight, "user"},
 	"/ignore":      {addIgnore, "user"},
 	"/unignore":    {removeIgnore, "user"},
-	"/mute":        {sendMute, "user [time in seconds]"},
+	"/mute":        {sendMute, "user [time (in seconds)]"},
 	"/unmute":      {sendUnmute, "user"},
 	"/ban":         {sendBan, "user reason [time (in seconds)]"},
 	"/ipban":       {sendBan, "user reason [time (in seconds)]"},
 	"/unban":       {sendUnban, "user"},
 	"/subonly":     {sendSubOnly, "{on,off}"},
 	"/broadcast":   {sendBroadcast, "message"},
+}
+
+// translate user tags into colors...
+var tagMap = map[string]color{
+	"black":   bgBlack,
+	"red":     bgRed,
+	"green":   bgGreen,
+	"yellow":  bgYellow,
+	"blue":    bgBlue,
+	"magenta": bgMagenta,
+	"cyan":    bgCyan,
+	"white":   bgWhite,
 }
 
 func (c *chat) handleCommand(message string) error {
@@ -100,7 +112,7 @@ func addTag(c *chat, tokens []string) error {
 	color := strings.ToLower(tokens[2])
 	user := strings.ToLower(tokens[1])
 
-	_, ok := tagMap[color]
+	newcolor, ok := tagMap[color]
 	if !ok {
 		return fmt.Errorf("invalid color: %s", color)
 	}
@@ -116,6 +128,9 @@ func addTag(c *chat, tokens []string) error {
 	if err != nil {
 		return err
 	}
+
+	newTag := fmt.Sprintf("%s   %s", newcolor, reset)
+	c.guiwrapper.applyTag(newTag, user)
 	msg := fmt.Sprintf("Tagged %s", user)
 	c.renderCommand(msg)
 	return nil
@@ -137,6 +152,8 @@ func removeTag(c *chat, tokens []string) error {
 		if err != nil {
 			return err
 		}
+		newTag := fmt.Sprintf("%s   %s", none, reset)
+		c.guiwrapper.applyTag(newTag, user)
 		msg := fmt.Sprintf("Untagged %s", user)
 		c.renderCommand(msg)
 		return nil
@@ -231,12 +248,8 @@ func sendWhisper(c *chat, tokens []string) error {
 	nick := tokens[1]
 	message := strings.Join(tokens[2:], " ")
 
-	tm := time.Unix(time.Now().Unix()/1000, 0)
-	tag := fmt.Sprintf(" %s*%s ", bgWhite, reset)
-	msg := fmt.Sprintf("%s%s[PM -> %s] %s %s", tag, fgBrightWhite, nick, message, reset)
-	c.Session.SendPrivateMessage(nick, message)
-	c.renderFormattedMessage(msg, tm)
-	return nil
+	c.renderSendPrivateMessage(nick, message)
+	return c.Session.SendPrivateMessage(nick, message)
 }
 
 func addIgnore(c *chat, tokens []string) error {
