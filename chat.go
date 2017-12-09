@@ -104,6 +104,10 @@ func (c *chat) handleInput(message string) {
 func (c *chat) tabComplete(v *gocui.View) {
 	buffer := v.Buffer()
 
+	if buffer == "" {
+		return
+	}
+
 	// strip \n
 	buffer = buffer[:len(buffer)-1]
 	if len(buffer) == 0 {
@@ -178,6 +182,7 @@ func (c *chat) tabComplete(v *gocui.View) {
 }
 
 func (c *chat) generateSuggestions(s string) []string {
+
 	users := c.Session.GetUsers()
 	suggestions := make([]string, 0)
 

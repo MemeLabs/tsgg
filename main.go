@@ -25,6 +25,7 @@ type config struct {
 	Highlighted     []string          `json:"highlighted"`
 	Tags            map[string]string `json:"tags"`
 	Ignores         []string          `json:"ignores"`
+	Stalks          []string          `json:"stalks"`
 	ShowJoinLeave   bool              `json:"showjoinleave"`
 	LegacyFlairs    bool              `json:"legacyflairs"`
 	sync.RWMutex
@@ -60,7 +61,7 @@ func main() {
 
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panicln(err)
 	}
 	defer g.Close()
 
@@ -73,7 +74,7 @@ func main() {
 	}
 
 	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
-		log.Fatalln(err)
+		log.Panicln(err)
 	}
 
 	if err := g.SetKeybinding("", gocui.KeyF1, gocui.ModNone, chat.showHelp); err != nil {
@@ -145,6 +146,16 @@ func main() {
 		log.Panicln(err)
 	}
 
+	chat.Session.AddNamesHandler(func(n dggchat.Names, s *dggchat.Session) {
+		chat.renderCommand("Connected!")
+		chat.renderUsers(n.Users)
+	})
+	chat.Session.AddSocketErrorHandler(func(err error, s *dggchat.Session) {
+		chat.renderError(err.Error() + " - Trying to reconnect...")
+	})
+	chat.Session.AddMessageHandler(func(m dggchat.Message, s *dggchat.Session) {
+		chat.renderMessage(m)
+	})
 	chat.Session.AddMessageHandler(func(m dggchat.Message, s *dggchat.Session) {
 		chat.renderMessage(m)
 	})
@@ -164,15 +175,11 @@ func main() {
 		chat.renderUnban(b)
 	})
 	chat.Session.AddJoinHandler(func(r dggchat.RoomAction, s *dggchat.Session) {
-		if chat.config.ShowJoinLeave {
-			chat.renderJoin(r)
-		}
+		chat.renderJoin(r)
 		chat.renderUsers(chat.Session.GetUsers())
 	})
 	chat.Session.AddQuitHandler(func(r dggchat.RoomAction, s *dggchat.Session) {
-		if chat.config.ShowJoinLeave {
-			chat.renderQuit(r)
-		}
+		chat.renderQuit(r)
 		chat.renderUsers(chat.Session.GetUsers())
 	})
 	chat.Session.AddSubOnlyHandler(func(so dggchat.SubOnly, s *dggchat.Session) {
@@ -190,25 +197,13 @@ func main() {
 
 	err = chat.Session.Open()
 	if err != nil {
-		log.Println(err)
-		return
+		// Most common problem is that the connection couldn't be established.
+		log.Panicln(err)
 	}
 	defer chat.Session.Close()
 
-	// TODO need to wait for lib to receive first NAMES message to be properly "initialized"
-	// maybe add a handler for this instead
-	for {
-		// TODO need to check here if banned, or connection unexpectedly closed, otherwise we loop indefinitely
-		if len(chat.Session.GetUsers()) != 0 {
-			break
-		}
-		time.Sleep(time.Millisecond * 300)
-	}
-
-	chat.renderUsers(chat.Session.GetUsers())
-
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
-		log.Fatalln(err)
+		log.Panicln(err)
 	}
 
 }

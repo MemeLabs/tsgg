@@ -76,7 +76,9 @@ func layout(g *gocui.Gui) error {
 
 		fmt.Fprint(messages, "Commands:\n")
 		for _, k := range keys {
-			fmt.Fprintf(messages, "  - %s %s\n", k, commands[k].usage)
+			if !commands[k].privileged { // TODO should also check if user is privileged
+				fmt.Fprintf(messages, "  - %s %s\n", k, commands[k].usage)
+			}
 		}
 	}
 
@@ -151,7 +153,7 @@ func (c *chat) renderDebug(s interface{}) {
 func (c *chat) renderError(errorString string) {
 	tag := fmt.Sprintf(" %sX%s ", bgRed, reset)
 	msg := fmt.Sprintf("%s*Error sending message: %s*%s", fgBrightRed, errorString, reset)
-	c.guiwrapper.addMessage(guimessage{timenow(), tag, msg, ""})
+	c.guiwrapper.addMessage(guimessage{time.Now(), tag, msg, ""})
 }
 
 func (c *chat) renderMessage(m dggchat.Message) {
@@ -197,38 +199,55 @@ func (c *chat) renderMessage(m dggchat.Message) {
 	}
 	c.config.RUnlock()
 
+	/**
+	// TODO alignment possibly
+	var align = 20
+	padlen := align - len(taggedNick) //len of tagged, because color codes mess up calc
+	if padlen > 0 {
+		coloredNick = strings.Repeat(" ", padlen) + coloredNick
+	}
+	*/
+
 	msg := fmt.Sprintf("%s: %s", coloredNick, formattedData)
 	c.guiwrapper.addMessage(guimessage{m.Timestamp, formattedTag, msg, m.Sender.Nick})
 }
 
 func (c *chat) renderPrivateMessage(pm dggchat.PrivateMessage) {
-	tag := fmt.Sprintf(" %s*%s ", bgWhite, reset)
+	tag := fmt.Sprintf(" %s%s*%s ", bgBlack, fgRed, reset)
 	msg := fmt.Sprintf("%s[PM <- %s] %s %s", fgBrightWhite, pm.User.Nick, pm.Message, reset)
 	c.guiwrapper.addMessage(guimessage{pm.Timestamp, tag, msg, ""})
 }
 
 func (c *chat) renderSendPrivateMessage(nick string, message string) {
-	tag := fmt.Sprintf(" %s*%s ", bgWhite, reset)
+	tag := fmt.Sprintf(" %s%s*%s ", bgBlack, fgRed, reset)
 	msg := fmt.Sprintf("%s[PM -> %s] %s %s", fgBrightWhite, nick, message, reset)
-	c.guiwrapper.addMessage(guimessage{timenow(), tag, msg, ""})
+	c.guiwrapper.addMessage(guimessage{time.Now(), tag, msg, ""})
 }
 
 func (c *chat) renderBroadcast(b dggchat.Broadcast) {
 	tag := fmt.Sprintf(" %s!%s ", fgBrightYellow, reset)
-	msg := fmt.Sprintf("%sBROADCAST: %s %s", fgBrightYellow, b.Message, reset)
+	extra := ""
+	if b.Sender.Nick != "" {
+		extra = fmt.Sprintf("from %s ", b.Sender.Nick)
+	}
+	msg := fmt.Sprintf("%sBROADCAST %s: %s %s", fgBrightYellow, extra, b.Message, reset)
 	c.guiwrapper.addMessage(guimessage{b.Timestamp, tag, msg, ""})
 }
 
 func (c *chat) renderJoin(join dggchat.RoomAction) {
-	tag := fmt.Sprintf(" %s>%s ", bgGreen, reset)
-	msg := fmt.Sprintf("%s%s%s joined!%s", tag, fgGreen, join.User.Nick, reset)
-	c.guiwrapper.addMessage(guimessage{join.Timestamp, tag, msg, ""})
+	if contains(c.config.Stalks, strings.ToLower(join.User.Nick)) || c.config.ShowJoinLeave {
+		tag := fmt.Sprintf(" %s>%s ", bgGreen, reset)
+		msg := fmt.Sprintf("%s%s joined!%s", fgGreen, join.User.Nick, reset)
+		c.guiwrapper.addMessage(guimessage{join.Timestamp, tag, msg, ""})
+	}
 }
 
 func (c *chat) renderQuit(quit dggchat.RoomAction) {
-	tag := fmt.Sprintf(" %s<%s ", bgRed, reset)
-	msg := fmt.Sprintf("%s%s left.%s", fgRed, quit.User.Nick, reset)
-	c.guiwrapper.addMessage(guimessage{quit.Timestamp, tag, msg, ""})
+	if contains(c.config.Stalks, strings.ToLower(quit.User.Nick)) || c.config.ShowJoinLeave {
+		tag := fmt.Sprintf(" %s<%s ", bgRed, reset)
+		msg := fmt.Sprintf("%s%s left.%s", fgRed, quit.User.Nick, reset)
+		c.guiwrapper.addMessage(guimessage{quit.Timestamp, tag, msg, ""})
+	}
 }
 
 func (c *chat) renderMute(mute dggchat.Mute) {
@@ -264,7 +283,7 @@ func (c *chat) renderSubOnly(so dggchat.SubOnly) {
 func (c *chat) renderCommand(s string) {
 	tag := fmt.Sprintf(" %sI%s ", bgWhite, reset)
 	msg := fmt.Sprintf("%s%s%s", fgWhite, s, reset)
-	c.guiwrapper.addMessage(guimessage{timenow(), tag, msg, ""})
+	c.guiwrapper.addMessage(guimessage{time.Now(), tag, msg, ""})
 }
 
 func (c *chat) renderUsers(dggusers []dggchat.User) {
@@ -288,10 +307,6 @@ func (c *chat) renderUsers(dggusers []dggchat.User) {
 		fmt.Fprintln(userView, users)
 		return nil
 	})
-}
-
-func timenow() time.Time {
-	return time.Unix(time.Now().Unix()/1000, 0)
 }
 
 func contains(s []string, q string) bool {
@@ -358,6 +373,7 @@ func scroll(dy int, chat *chat, view string) error {
 	if ty > lines && view == "messages" {
 		// Set autoscroll to normal again.
 		v.Autoscroll = true
+		chat.guiwrapper.redraw() // see comment in redraw()
 		return nil
 	}
 	// Set autoscroll to false and scroll.
