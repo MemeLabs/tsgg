@@ -17,6 +17,10 @@ const (
 	none  color = ""
 	reset color = "\u001b[0m"
 
+	Bold      color = "\u001b[1m"
+	Underline color = "\u001b[4m"
+	Reversed  color = "\u001b[7m"
+
 	bgBlack   color = "\u001b[40m"
 	bgRed     color = "\u001b[41m"
 	bgGreen   color = "\u001b[42m"
@@ -156,6 +160,15 @@ func (c *chat) renderError(errorString string) {
 	c.guiwrapper.addMessage(guimessage{time.Now(), tag, msg, ""})
 }
 
+func (c *chat) isHighlighted(user string) bool {
+	for _, highlighted := range c.config.Highlighted {
+		if strings.EqualFold(user, highlighted) {
+			return true
+		}
+	}
+	return false
+}
+
 func (c *chat) renderMessage(m dggchat.Message) {
 
 	taggedNick := m.Sender.Nick
@@ -170,26 +183,26 @@ func (c *chat) renderMessage(m dggchat.Message) {
 	for _, flair := range c.flairs {
 		if contains(m.Sender.Features, flair.Name) {
 			taggedNick = fmt.Sprintf("[%s]%s", flair.Badge, taggedNick)
-			coloredNick = fmt.Sprintf("%s%s %s", flair.Color, taggedNick, reset)
+			coloredNick = fmt.Sprintf("%s%s%s%s", Bold, flair.Color, taggedNick, reset)
 		}
 	}
 
-	for _, highlighted := range c.config.Highlighted {
-		if strings.EqualFold(m.Sender.Nick, highlighted) {
-			taggedNick = fmt.Sprintf("[*]%s", taggedNick)
-			coloredNick = fmt.Sprintf("%s%s %s", fgCyan, taggedNick, reset)
-		}
-	}
+	// for _, highlighted := range c.config.Highlighted {
+	// 	if strings.EqualFold(m.Sender.Nick, highlighted) {
+	// 		taggedNick = fmt.Sprintf("[*]%s", taggedNick)
+	// 		coloredNick = fmt.Sprintf("%s%s %s", fgCyan, taggedNick, reset)
+	// 	}
+	// }
 
 	if coloredNick == "" {
-		coloredNick = fmt.Sprintf("%s%s %s", reset, taggedNick, reset)
+		coloredNick = fmt.Sprintf("%s%s%s", Bold, taggedNick, reset)
 	}
 
 	formattedData := m.Message
-	if c.username != "" && strings.Contains(strings.ToLower(m.Message), strings.ToLower(c.username)) {
-		formattedData = fmt.Sprintf("%s%s %s", bgCyan, m.Message, reset)
+	if c.username != "" && strings.Contains(strings.ToLower(m.Message), strings.ToLower(c.username)) || c.isHighlighted(m.Sender.Nick) {
+		formattedData = fmt.Sprintf("%s%s%s%s", bgCyan, fgBlack, m.Message, reset)
 	} else if strings.HasPrefix(m.Message, ">") {
-		formattedData = fmt.Sprintf("%s%s %s", fgGreen, m.Message, reset)
+		formattedData = fmt.Sprintf("%s%s%s", fgGreen, m.Message, reset)
 	}
 
 	formattedTag := "   "
@@ -199,14 +212,12 @@ func (c *chat) renderMessage(m dggchat.Message) {
 	}
 	c.config.RUnlock()
 
-	/**
 	// TODO alignment possibly
-	var align = 20
-	padlen := align - len(taggedNick) //len of tagged, because color codes mess up calc
-	if padlen > 0 {
-		coloredNick = strings.Repeat(" ", padlen) + coloredNick
-	}
-	*/
+	// var align = 23
+	// padlen := align - len(strings.TrimSpace(taggedNick)) //len of tagged, because color codes mess up calc
+	// if padlen > 0 && len(strings.TrimSpace(taggedNick)) < align {
+	// 	coloredNick = strings.Repeat(" ", padlen) + coloredNick
+	// }
 
 	msg := fmt.Sprintf("%s: %s", coloredNick, formattedData)
 	c.guiwrapper.addMessage(guimessage{m.Timestamp, formattedTag, msg, m.Sender.Nick})
