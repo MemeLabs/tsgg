@@ -64,7 +64,7 @@ func layout(g *gocui.Gui) error {
 		messages.Autoscroll = true
 	}
 
-	if messages, err := g.SetView("help", maxX/4*2, 0, maxX-20, maxY/3); err != nil {
+	if messages, err := g.SetView("help", maxX/4*2, 0, maxX-20, maxY/2); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -80,10 +80,17 @@ func layout(g *gocui.Gui) error {
 
 		fmt.Fprint(messages, "Commands:\n")
 		for _, k := range keys {
-			if !commands[k].privileged { // TODO should also check if user is privileged
+			if !commands[k].privileged {
 				fmt.Fprintf(messages, "  - %s %s\n", k, commands[k].usage)
 			}
 		}
+		// TODO: only print those if user can use them, and remove the pasted loop.
+		for _, k := range keys {
+			if commands[k].privileged {
+				fmt.Fprintf(messages, "  * %s %s\n", k, commands[k].usage)
+			}
+		}
+
 	}
 
 	if messages, err := g.SetView("messages", 0, 0, maxX-20, maxY-3); err != nil {
@@ -269,7 +276,7 @@ func (c *chat) renderMute(mute dggchat.Mute) {
 
 func (c *chat) renderUnmute(unmute dggchat.Mute) {
 	tag := fmt.Sprintf(" %s!%s ", bgYellow, reset)
-	msg := fmt.Sprintf("%s%s%s unmuted by %s%s", tag, fgYellow, unmute.Target.Nick, unmute.Sender.Nick, reset)
+	msg := fmt.Sprintf("%s%s unmuted by %s%s", fgYellow, unmute.Target.Nick, unmute.Sender.Nick, reset)
 	c.guiwrapper.addMessage(guimessage{unmute.Timestamp, tag, msg, ""})
 }
 
