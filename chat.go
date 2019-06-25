@@ -15,12 +15,12 @@ type chat struct {
 	config     *config
 	username   string
 	Session    *dggchat.Session
-	flairs     []flair
 	emotes     []string
 	guiwrapper *guiwrapper
 
-	helpactive  bool
-	debugActive bool
+	helpactive     bool
+	debugActive    bool
+	userListActive bool
 
 	messageHistory []string
 	historyIndex   int
@@ -31,7 +31,7 @@ type chat struct {
 
 func newChat(config *config, g *gocui.Gui) (*chat, error) {
 
-	dgg, err := dggchat.New(config.DGGKey)
+	dgg, err := dggchat.New(";jwt=" + config.AuthToken)
 	if err != nil {
 		return nil, err
 	}
@@ -52,17 +52,12 @@ func newChat(config *config, g *gocui.Gui) (*chat, error) {
 		emotes:         make([]string, 0),
 		username:       config.Username,
 		Session:        dgg,
-		flairs:         newflairs,
 		guiwrapper: &guiwrapper{
 			gui:        g,
 			messages:   []*guimessage{},
 			maxlines:   config.Maxlines,
 			timeformat: config.Timeformat,
 		},
-	}
-
-	if config.LegacyFlairs {
-		chat.flairs = legacyflairs
 	}
 
 	// don't wait for emotes to load
@@ -210,27 +205,8 @@ func (c *chat) generateSuggestions(s string) []string {
 }
 
 func (c *chat) sortUsers(u []dggchat.User) {
+	sort.SliceStable(u, func(i, j int) bool { return strings.ToLower(u[i].Nick) < strings.ToLower(u[j].Nick) })
 	sort.SliceStable(u, func(i, j int) bool {
-		iUser := u[i]
-		jUser := u[j]
-
-		iIndex, _ := c.highestFlair(iUser)
-		jIndex, _ := c.highestFlair(jUser)
-
-		return iIndex > jIndex
+		return c.config.Tags[strings.ToLower(u[i].Nick)] > c.config.Tags[strings.ToLower(u[j].Nick)]
 	})
-}
-
-func (c *chat) highestFlair(u dggchat.User) (int, flair) {
-	index := -1
-	var highestFlair flair
-
-	for i, flair := range c.flairs {
-		if contains(u.Features, flair.Name) {
-			index = i
-			highestFlair = flair
-		}
-	}
-
-	return index, highestFlair
 }

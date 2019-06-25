@@ -1,15 +1,22 @@
 {
-    "dgg_key": "authtoken here",
-    "custom_url": "wss://www.destiny.gg/ws",
-    "username": "pleb",
-    "timeformat": "3:04PM",
-    "maxlines": 1000,
-    "scrolling_speed": 5,
-    "page_up_down_Speed": 20,
-    "highlighted": [
-        "Polecat",
-        "pleb"
-    ],
-    "showjoinleave": false,
-    "legacyflairs": false
+   "auth_token":"authtoken here",
+   "custom_url":"wss://chat.strims.gg/ws",
+   "username":"pleb",
+   "timeformat":"3:04PM",
+   "maxlines":1000,
+   "scrolling_speed":5,
+   "page_up_down_Speed":20,
+   "highlighted":[
+      "Polecat",
+      "pleb"
+   ],
+   "tags":{
+      "username":"blue"
+   },
+   "showjoinleave":false,
+   "highlight_color":"\u001b[41m",
+   "tag_color":"\u001b[41m",
+   "highlight_bg_color":"\u001b[47m",
+   "highlight_fg_color":"\u001b[30m",
+   "_comment":"http://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html#8-colors"
 }
