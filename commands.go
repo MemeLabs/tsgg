@@ -9,28 +9,46 @@ import (
 )
 
 type command struct {
-	c     func(*chat, []string) error
-	usage string
+	c          func(*chat, []string) error
+	usage      string
+	privileged bool
 }
 
 // TODO need to refactor this... usage strings incomplete/double
 var commands = map[string]command{
-	"/w":           {sendWhisper, "user message"},
-	"/whisper":     {sendWhisper, "user message"},
-	"/me":          {sendAction, "message"},
-	"/tag":         {addTag, "user color"},
-	"/untag":       {removeTag, "user"},
-	"/highlight":   {addHighlight, "user"},
-	"/unhighlight": {removeHighlight, "user"},
-	"/ignore":      {addIgnore, "user"},
-	"/unignore":    {removeIgnore, "user"},
-	"/mute":        {sendMute, "user [time in seconds]"},
-	"/unmute":      {sendUnmute, "user"},
-	"/ban":         {sendBan, "user reason [time (in seconds)]"},
-	"/ipban":       {sendBan, "user reason [time (in seconds)]"},
-	"/unban":       {sendUnban, "user"},
-	"/subonly":     {sendSubOnly, "{on,off}"},
-	"/broadcast":   {sendBroadcast, "message"},
+	"/w":           {sendWhisper, "user message", false},
+	"/whisper":     {sendWhisper, "user message", false},
+	"/me":          {sendAction, "message", false},
+	"/tag":         {addTag, "user color", false},
+	"/untag":       {removeTag, "user", false},
+	"/highlight":   {addHighlight, "user", false},
+	"/unhighlight": {removeHighlight, "user", false},
+	"/ignore":      {addIgnore, "user", false},
+	"/unignore":    {removeIgnore, "user", false},
+	"/stalk":       {addStalk, "user", false},
+	"/unstalk":     {removeStalk, "user", false},
+	"/mute":        {sendMute, "user [time (in seconds)]", true},
+	"/unmute":      {sendUnmute, "user", true},
+	// TODO reason is forced to be single string here without good reason.
+	"/ban":       {sendBan, "user reason [time (in seconds)]", true},
+	"/ipban":     {sendBan, "user reason [time (in seconds)]", true},
+	"/perm":      {sendPermBan, "user reason", true},
+	"/permip":    {sendPermBan, "user reason", true},
+	"/unban":     {sendUnban, "user", true},
+	"/subonly":   {sendSubOnly, "{on,off}", true},
+	"/broadcast": {sendBroadcast, "message", true},
+}
+
+// translate user tags into colors...
+var tagMap = map[string]color{
+	"black":   bgBlack,
+	"red":     bgRed,
+	"green":   bgGreen,
+	"yellow":  bgYellow,
+	"blue":    bgBlue,
+	"magenta": bgMagenta,
+	"cyan":    bgCyan,
+	"white":   bgWhite,
 }
 
 func (c *chat) handleCommand(message string) error {
@@ -89,7 +107,55 @@ func removeHighlight(c *chat, tokens []string) error {
 		}
 	}
 
-	return fmt.Errorf("User: %s is not in highlight list", user)
+	return fmt.Errorf("%s is not in highlight list", user)
+}
+
+func addStalk(c *chat, tokens []string) error {
+	if len(tokens) < 2 {
+		return errors.New("Usage: /stalk user")
+	}
+
+	user := strings.ToLower(tokens[1])
+	if contains(c.config.Stalks, user) {
+		return fmt.Errorf("Already stalking %s", user)
+	}
+
+	c.config.Lock()
+	c.config.Stalks = append(c.config.Stalks, user)
+	c.config.Unlock()
+
+	err := c.config.save()
+	if err != nil {
+		return err
+	}
+	msg := fmt.Sprintf("Now stalking %s", user)
+	c.renderCommand(msg)
+	return nil
+}
+
+func removeStalk(c *chat, tokens []string) error {
+	if len(tokens) < 2 {
+		return errors.New("Usage: /unstalk user")
+	}
+
+	user := strings.ToLower(tokens[1])
+	c.config.Lock()
+	defer c.config.Unlock()
+
+	for i := 0; i < len(c.config.Stalks); i++ {
+		if strings.ToLower(c.config.Stalks[i]) == user {
+			c.config.Stalks = append(c.config.Stalks[:i], c.config.Stalks[i+1:]...)
+			err := c.config.save()
+			if err != nil {
+				return err
+			}
+			msg := fmt.Sprintf("No longer stalking %s", user)
+			c.renderCommand(msg)
+			return nil
+		}
+	}
+
+	return fmt.Errorf("%s is not in stalk list", user)
 }
 
 func addTag(c *chat, tokens []string) error {
@@ -100,7 +166,7 @@ func addTag(c *chat, tokens []string) error {
 	color := strings.ToLower(tokens[2])
 	user := strings.ToLower(tokens[1])
 
-	_, ok := tagMap[color]
+	newcolor, ok := tagMap[color]
 	if !ok {
 		return fmt.Errorf("invalid color: %s", color)
 	}
@@ -116,6 +182,9 @@ func addTag(c *chat, tokens []string) error {
 	if err != nil {
 		return err
 	}
+
+	newTag := fmt.Sprintf("%s   %s", newcolor, reset)
+	c.guiwrapper.applyTag(newTag, user)
 	msg := fmt.Sprintf("Tagged %s", user)
 	c.renderCommand(msg)
 	return nil
@@ -137,6 +206,8 @@ func removeTag(c *chat, tokens []string) error {
 		if err != nil {
 			return err
 		}
+		newTag := fmt.Sprintf("%s   %s", none, reset)
+		c.guiwrapper.applyTag(newTag, user)
 		msg := fmt.Sprintf("Untagged %s", user)
 		c.renderCommand(msg)
 		return nil
@@ -198,6 +269,14 @@ func sendUnban(c *chat, tokens []string) error {
 	return c.Session.SendUnban(tokens[1])
 }
 
+func sendPermBan(c *chat, tokens []string) error {
+	if len(tokens) != 3 {
+		return errors.New("Usage: /perm[ip] user reason")
+	}
+	banip := tokens[0] == "/permip"
+	return c.Session.SendPermanentBan(tokens[1], tokens[2], banip)
+}
+
 func sendSubOnly(c *chat, tokens []string) error {
 	so := tokens[1]
 	if len(tokens) != 2 || (so != "on" && so != "off") {
@@ -212,15 +291,17 @@ func sendAction(c *chat, tokens []string) error {
 	if len(tokens) < 2 {
 		return errors.New("Usage: /me message")
 	}
-	return c.Session.SendAction(tokens[1])
+	message := strings.Join(tokens[1:], " ")
+	return c.Session.SendAction(message)
 }
 
 func sendBroadcast(c *chat, tokens []string) error {
 	if len(tokens) < 2 {
 		return errors.New("Usage: /broadcast message")
 	}
-	//TODO dggchat
-	return errors.New("not implemented")
+
+	message := strings.Join(tokens[1:], " ")
+	return c.Session.SendBroadcast(message)
 }
 
 func sendWhisper(c *chat, tokens []string) error {
@@ -231,12 +312,8 @@ func sendWhisper(c *chat, tokens []string) error {
 	nick := tokens[1]
 	message := strings.Join(tokens[2:], " ")
 
-	tm := time.Unix(time.Now().Unix()/1000, 0)
-	tag := fmt.Sprintf(" %s*%s ", bgWhite, reset)
-	msg := fmt.Sprintf("%s%s[PM -> %s] %s %s", tag, fgBrightWhite, nick, message, reset)
-	c.Session.SendPrivateMessage(nick, message)
-	c.renderFormattedMessage(msg, tm)
-	return nil
+	c.renderSendPrivateMessage(nick, message)
+	return c.Session.SendPrivateMessage(nick, message)
 }
 
 func addIgnore(c *chat, tokens []string) error {

@@ -25,6 +25,7 @@ type config struct {
 	Highlighted     []string          `json:"highlighted"`
 	Tags            map[string]string `json:"tags"`
 	Ignores         []string          `json:"ignores"`
+	Stalks          []string          `json:"stalks"`
 	ShowJoinLeave   bool              `json:"showjoinleave"`
 	LegacyFlairs    bool              `json:"legacyflairs"`
 	sync.RWMutex
@@ -60,43 +61,39 @@ func main() {
 
 	g, err := gocui.NewGui(gocui.OutputNormal)
 	if err != nil {
-		log.Fatalln(err)
+		log.Panicln(err)
 	}
 	defer g.Close()
 
 	g.SetManagerFunc(layout)
 	g.Mouse = true
 
-	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
-		log.Fatalln(err)
-	}
-
-	if err := g.SetKeybinding("", gocui.KeyF1, gocui.ModNone, showHelp); err != nil {
-		log.Panicln(err)
-	}
-
-	if err := g.SetKeybinding("", gocui.KeyF12, gocui.ModNone, showDebug); err != nil {
-		log.Panicln(err)
-	}
-
 	chat, err := newChat(&config, g)
 	if err != nil {
 		log.Panicln(err)
 	}
 
-	if config.LegacyFlairs {
-		chat.flairs = legacyflairs
+	if err := g.SetKeybinding("", gocui.KeyCtrlC, gocui.ModNone, quit); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("", gocui.KeyF1, gocui.ModNone, chat.showHelp); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("", gocui.KeyF12, gocui.ModNone, chat.showDebug); err != nil {
+		log.Panicln(err)
 	}
 
 	if err := g.SetKeybinding("input", gocui.KeyArrowUp, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = historyUp(g, v, chat)
+		err = chat.historyUp(g, v)
 		return err
 	}); err != nil {
 		log.Panicln(err)
 	}
 
 	if err := g.SetKeybinding("input", gocui.KeyArrowDown, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-		err = historyDown(g, v, chat)
+		err = chat.historyDown(g, v)
 		return err
 	}); err != nil {
 		log.Panicln(err)
@@ -142,15 +139,23 @@ func main() {
 		log.Panicln(err)
 	}
 
-	err = g.SetKeybinding("input", gocui.KeyTab, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	if err := g.SetKeybinding("input", gocui.KeyTab, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		chat.tabComplete(v)
 		return nil
-	})
-
-	if err != nil {
+	}); err != nil {
 		log.Panicln(err)
 	}
 
+	chat.Session.AddNamesHandler(func(n dggchat.Names, s *dggchat.Session) {
+		chat.renderCommand("Connected!")
+		chat.renderUsers(n.Users)
+	})
+	chat.Session.AddSocketErrorHandler(func(err error, s *dggchat.Session) {
+		chat.renderError(err.Error() + " - Trying to reconnect...")
+	})
+	chat.Session.AddMessageHandler(func(m dggchat.Message, s *dggchat.Session) {
+		chat.renderMessage(m)
+	})
 	chat.Session.AddMessageHandler(func(m dggchat.Message, s *dggchat.Session) {
 		chat.renderMessage(m)
 	})
@@ -170,15 +175,11 @@ func main() {
 		chat.renderUnban(b)
 	})
 	chat.Session.AddJoinHandler(func(r dggchat.RoomAction, s *dggchat.Session) {
-		if chat.config.ShowJoinLeave {
-			chat.renderJoin(r)
-		}
+		chat.renderJoin(r)
 		chat.renderUsers(chat.Session.GetUsers())
 	})
 	chat.Session.AddQuitHandler(func(r dggchat.RoomAction, s *dggchat.Session) {
-		if chat.config.ShowJoinLeave {
-			chat.renderQuit(r)
-		}
+		chat.renderQuit(r)
 		chat.renderUsers(chat.Session.GetUsers())
 	})
 	chat.Session.AddSubOnlyHandler(func(so dggchat.SubOnly, s *dggchat.Session) {
@@ -196,27 +197,19 @@ func main() {
 
 	err = chat.Session.Open()
 	if err != nil {
-		log.Println(err)
-		return
+		// Most common problem is that the connection couldn't be established.
+		log.Panicln(err)
 	}
 	defer chat.Session.Close()
 
-	// TODO need to wait for lib to receive first NAMES message to be properly "initialized"
-	// maybe add a handler for this instead
-	for {
-		// TODO need to check here if banned, or connection unexpectedly closed, otherwise we loop indefinitely
-		if len(chat.Session.GetUsers()) != 0 {
-			break
-		}
-		time.Sleep(time.Millisecond * 300)
-	}
-
-	chat.renderUsers(chat.Session.GetUsers())
-
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
-		log.Fatalln(err)
+		log.Panicln(err)
 	}
 
+}
+
+func quit(g *gocui.Gui, v *gocui.View) error {
+	return gocui.ErrQuit
 }
 
 func (cfg *config) save() error {
@@ -226,7 +219,7 @@ func (cfg *config) save() error {
 		return fmt.Errorf("error marshaling config: %v", err)
 	}
 
-	err = ioutil.WriteFile(configFile, d, 0755)
+	err = ioutil.WriteFile(configFile, d, 0600)
 	if err != nil {
 		return fmt.Errorf("error saving config: %v", err)
 	}
@@ -235,13 +228,13 @@ func (cfg *config) save() error {
 
 func (c *chat) mustAddScroll(view string, speed int, up gocui.Key, down gocui.Key) {
 	var err error
-	err = c.gui.SetKeybinding(view, down, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	err = c.guiwrapper.gui.SetKeybinding(view, down, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		return scroll(speed, c, view)
 	})
 	if err != nil {
 		log.Panicln(err)
 	}
-	err = c.gui.SetKeybinding(view, up, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
+	err = c.guiwrapper.gui.SetKeybinding(view, up, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
 		return scroll(-speed, c, view)
 	})
 	if err != nil {

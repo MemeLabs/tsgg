@@ -17,6 +17,10 @@ const (
 	none  color = ""
 	reset color = "\u001b[0m"
 
+	Bold      color = "\u001b[1m"
+	Underline color = "\u001b[4m"
+	Reversed  color = "\u001b[7m"
+
 	bgBlack   color = "\u001b[40m"
 	bgRed     color = "\u001b[41m"
 	bgGreen   color = "\u001b[42m"
@@ -47,18 +51,6 @@ const (
 	fgBrightWhite   color = "\u001b[37;1m"
 )
 
-// translate user tags into colors...
-var tagMap = map[string]color{
-	"black":   bgBlack,
-	"red":     bgRed,
-	"green":   bgGreen,
-	"yellow":  bgYellow,
-	"blue":    bgBlue,
-	"magenta": bgMagenta,
-	"cyan":    bgCyan,
-	"white":   bgWhite,
-}
-
 func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 	g.Cursor = true
@@ -72,7 +64,7 @@ func layout(g *gocui.Gui) error {
 		messages.Autoscroll = true
 	}
 
-	if messages, err := g.SetView("help", maxX/4*2, 0, maxX-20, maxY/3); err != nil {
+	if messages, err := g.SetView("help", maxX/4*2, 0, maxX-20, maxY/2); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -88,8 +80,17 @@ func layout(g *gocui.Gui) error {
 
 		fmt.Fprint(messages, "Commands:\n")
 		for _, k := range keys {
-			fmt.Fprintf(messages, "  - %s %s\n", k, commands[k].usage)
+			if !commands[k].privileged {
+				fmt.Fprintf(messages, "  - %s %s\n", k, commands[k].usage)
+			}
 		}
+		// TODO: only print those if user can use them, and remove the pasted loop.
+		for _, k := range keys {
+			if commands[k].privileged {
+				fmt.Fprintf(messages, "  * %s %s\n", k, commands[k].usage)
+			}
+		}
+
 	}
 
 	if messages, err := g.SetView("messages", 0, 0, maxX-20, maxY-3); err != nil {
@@ -125,62 +126,54 @@ func layout(g *gocui.Gui) error {
 	return nil
 }
 
-func quit(g *gocui.Gui, v *gocui.View) error {
-	return gocui.ErrQuit
-}
-
-var helpactive = false
-
-func showHelp(g *gocui.Gui, v *gocui.View) error {
-	if !helpactive {
-		helpactive = !helpactive
+func (c *chat) showHelp(g *gocui.Gui, v *gocui.View) error {
+	if !c.helpactive {
+		c.helpactive = !c.helpactive
 		_, err := g.SetViewOnTop("help")
 		return err
 	}
-	helpactive = !helpactive
+	c.helpactive = !c.helpactive
 	_, err := g.SetViewOnBottom("help")
 	return err
 }
 
-var debugActive = false
-
-func showDebug(g *gocui.Gui, v *gocui.View) error {
-	if !debugActive {
-		debugActive = !debugActive
+func (c *chat) showDebug(g *gocui.Gui, v *gocui.View) error {
+	if !c.debugActive {
+		c.debugActive = !c.debugActive
 		_, err := g.SetViewOnTop("debug")
 		return err
 	}
-	debugActive = !debugActive
+	c.debugActive = !c.debugActive
 	_, err := g.SetViewOnBottom("debug")
 	return err
 }
 
-func (c *chat) renderError(errorString string) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messageView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		errorMessage := fmt.Sprintf("%s*Error sending message: %s*%s", fgRed, errorString, reset)
-		fmt.Fprintln(messageView, errorMessage)
-		return nil
-	})
-}
-
 func (c *chat) renderDebug(s interface{}) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messageView, err := g.View("debug")
+	c.guiwrapper.gui.Update(func(g *gocui.Gui) error {
+		debugView, err := g.View("debug")
 		if err != nil {
-			log.Println(err)
 			return err
 		}
 
 		errorMessage := fmt.Sprintf("DEBUG: %+v", s)
-		fmt.Fprintln(messageView, errorMessage)
+		fmt.Fprintln(debugView, errorMessage)
 		return nil
 	})
+}
+
+func (c *chat) renderError(errorString string) {
+	tag := fmt.Sprintf(" %sX%s ", bgRed, reset)
+	msg := fmt.Sprintf("%s*Error sending message: %s*%s", fgBrightRed, errorString, reset)
+	c.guiwrapper.addMessage(guimessage{time.Now(), tag, msg, ""})
+}
+
+func (c *chat) isHighlighted(user string) bool {
+	for _, highlighted := range c.config.Highlighted {
+		if strings.EqualFold(user, highlighted) {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *chat) renderMessage(m dggchat.Message) {
@@ -197,26 +190,26 @@ func (c *chat) renderMessage(m dggchat.Message) {
 	for _, flair := range c.flairs {
 		if contains(m.Sender.Features, flair.Name) {
 			taggedNick = fmt.Sprintf("[%s]%s", flair.Badge, taggedNick)
-			coloredNick = fmt.Sprintf("%s%s %s", flair.Color, taggedNick, reset)
+			coloredNick = fmt.Sprintf("%s%s%s%s", Bold, flair.Color, taggedNick, reset)
 		}
 	}
 
-	for _, highlighted := range c.config.Highlighted {
-		if strings.EqualFold(m.Sender.Nick, highlighted) {
-			taggedNick = fmt.Sprintf("[*]%s", taggedNick)
-			coloredNick = fmt.Sprintf("%s%s %s", fgCyan, taggedNick, reset)
-		}
-	}
+	// for _, highlighted := range c.config.Highlighted {
+	// 	if strings.EqualFold(m.Sender.Nick, highlighted) {
+	// 		taggedNick = fmt.Sprintf("[*]%s", taggedNick)
+	// 		coloredNick = fmt.Sprintf("%s%s %s", fgCyan, taggedNick, reset)
+	// 	}
+	// }
 
 	if coloredNick == "" {
-		coloredNick = fmt.Sprintf("%s%s %s", reset, taggedNick, reset)
+		coloredNick = fmt.Sprintf("%s%s%s", Bold, taggedNick, reset)
 	}
 
 	formattedData := m.Message
-	if c.username != "" && strings.Contains(strings.ToLower(m.Message), strings.ToLower(c.username)) {
-		formattedData = fmt.Sprintf("%s%s %s", bgCyan, m.Message, reset)
+	if c.username != "" && strings.Contains(strings.ToLower(m.Message), strings.ToLower(c.username)) || c.isHighlighted(m.Sender.Nick) {
+		formattedData = fmt.Sprintf("%s%s%s%s", bgCyan, fgBlack, m.Message, reset)
 	} else if strings.HasPrefix(m.Message, ">") {
-		formattedData = fmt.Sprintf("%s%s %s", fgGreen, m.Message, reset)
+		formattedData = fmt.Sprintf("%s%s%s", fgGreen, m.Message, reset)
 	}
 
 	formattedTag := "   "
@@ -226,73 +219,93 @@ func (c *chat) renderMessage(m dggchat.Message) {
 	}
 	c.config.RUnlock()
 
-	msg := fmt.Sprintf("%s%s: %s", formattedTag, coloredNick, formattedData)
-	c.renderFormattedMessage(msg, m.Timestamp)
+	// TODO alignment possibly
+	// var align = 23
+	// padlen := align - len(strings.TrimSpace(taggedNick)) //len of tagged, because color codes mess up calc
+	// if padlen > 0 && len(strings.TrimSpace(taggedNick)) < align {
+	// 	coloredNick = strings.Repeat(" ", padlen) + coloredNick
+	// }
+
+	msg := fmt.Sprintf("%s: %s", coloredNick, formattedData)
+	c.guiwrapper.addMessage(guimessage{m.Timestamp, formattedTag, msg, m.Sender.Nick})
 }
 
 func (c *chat) renderPrivateMessage(pm dggchat.PrivateMessage) {
-	tag := fmt.Sprintf(" %s*%s ", bgWhite, reset)
-	msg := fmt.Sprintf("%s%s[PM <- %s] %s %s", tag, fgBrightWhite, pm.User.Nick, pm.Message, reset)
-	c.renderFormattedMessage(msg, pm.Timestamp)
+	tag := fmt.Sprintf(" %s%s*%s ", bgBlack, fgRed, reset)
+	msg := fmt.Sprintf("%s[PM <- %s] %s %s", fgBrightWhite, pm.User.Nick, pm.Message, reset)
+	c.guiwrapper.addMessage(guimessage{pm.Timestamp, tag, msg, ""})
+}
+
+func (c *chat) renderSendPrivateMessage(nick string, message string) {
+	tag := fmt.Sprintf(" %s%s*%s ", bgBlack, fgRed, reset)
+	msg := fmt.Sprintf("%s[PM -> %s] %s %s", fgBrightWhite, nick, message, reset)
+	c.guiwrapper.addMessage(guimessage{time.Now(), tag, msg, ""})
 }
 
 func (c *chat) renderBroadcast(b dggchat.Broadcast) {
 	tag := fmt.Sprintf(" %s!%s ", fgBrightYellow, reset)
-	msg := fmt.Sprintf("%s%sBROADCAST: %s %s", tag, fgBrightYellow, b.Message, reset)
-	c.renderFormattedMessage(msg, b.Timestamp)
+	extra := ""
+	if b.Sender.Nick != "" {
+		extra = fmt.Sprintf("from %s ", b.Sender.Nick)
+	}
+	msg := fmt.Sprintf("%sBROADCAST %s: %s %s", fgBrightYellow, extra, b.Message, reset)
+	c.guiwrapper.addMessage(guimessage{b.Timestamp, tag, msg, ""})
 }
 
 func (c *chat) renderJoin(join dggchat.RoomAction) {
-	tag := fmt.Sprintf(" %s>%s ", bgGreen, reset)
-	msg := fmt.Sprintf("%s%s%s joined!%s", tag, fgGreen, join.User.Nick, reset)
-	c.renderFormattedMessage(msg, join.Timestamp)
+	if contains(c.config.Stalks, strings.ToLower(join.User.Nick)) || c.config.ShowJoinLeave {
+		tag := fmt.Sprintf(" %s>%s ", bgGreen, reset)
+		msg := fmt.Sprintf("%s%s joined!%s", fgGreen, join.User.Nick, reset)
+		c.guiwrapper.addMessage(guimessage{join.Timestamp, tag, msg, ""})
+	}
 }
 
 func (c *chat) renderQuit(quit dggchat.RoomAction) {
-	tag := fmt.Sprintf(" %s<%s ", bgRed, reset)
-	msg := fmt.Sprintf("%s%s%s left.%s", tag, fgRed, quit.User.Nick, reset)
-	c.renderFormattedMessage(msg, quit.Timestamp)
+	if contains(c.config.Stalks, strings.ToLower(quit.User.Nick)) || c.config.ShowJoinLeave {
+		tag := fmt.Sprintf(" %s<%s ", bgRed, reset)
+		msg := fmt.Sprintf("%s%s left.%s", fgRed, quit.User.Nick, reset)
+		c.guiwrapper.addMessage(guimessage{quit.Timestamp, tag, msg, ""})
+	}
 }
 
 func (c *chat) renderMute(mute dggchat.Mute) {
 	tag := fmt.Sprintf(" %s!%s ", bgYellow, reset)
-	msg := fmt.Sprintf("%s%s%s muted by %s%s", tag, fgYellow, mute.Target.Nick, mute.Sender.Nick, reset)
-	c.renderFormattedMessage(msg, mute.Timestamp)
+	msg := fmt.Sprintf("%s%s muted by %s%s", fgYellow, mute.Target.Nick, mute.Sender.Nick, reset)
+	c.guiwrapper.addMessage(guimessage{mute.Timestamp, tag, msg, ""})
 }
 
-func (c *chat) renderUnmute(mute dggchat.Mute) {
+func (c *chat) renderUnmute(unmute dggchat.Mute) {
 	tag := fmt.Sprintf(" %s!%s ", bgYellow, reset)
-	msg := fmt.Sprintf("%s%s%s unmuted by %s%s", tag, fgYellow, mute.Target.Nick, mute.Sender.Nick, reset)
-	c.renderFormattedMessage(msg, mute.Timestamp)
+	msg := fmt.Sprintf("%s%s unmuted by %s%s", fgYellow, unmute.Target.Nick, unmute.Sender.Nick, reset)
+	c.guiwrapper.addMessage(guimessage{unmute.Timestamp, tag, msg, ""})
 }
 
 func (c *chat) renderBan(ban dggchat.Ban) {
 	tag := fmt.Sprintf(" %s!%s ", bgRed, reset)
-	msg := fmt.Sprintf("%s%s%s banned by %s%s", tag, fgRed, ban.Target.Nick, ban.Sender.Nick, reset)
-	c.renderFormattedMessage(msg, ban.Timestamp)
+	msg := fmt.Sprintf("%s%s banned by %s%s", fgRed, ban.Target.Nick, ban.Sender.Nick, reset)
+	c.guiwrapper.addMessage(guimessage{ban.Timestamp, tag, msg, ""})
 }
 
 func (c *chat) renderUnban(unban dggchat.Ban) {
 	tag := fmt.Sprintf(" %s!%s ", bgRed, reset)
-	msg := fmt.Sprintf("%s%s%s unbanned by %s%s", tag, fgRed, unban.Target.Nick, unban.Sender.Nick, reset)
-	c.renderFormattedMessage(msg, unban.Timestamp)
+	msg := fmt.Sprintf("%s%s unbanned by %s%s", fgRed, unban.Target.Nick, unban.Sender.Nick, reset)
+	c.guiwrapper.addMessage(guimessage{unban.Timestamp, tag, msg, ""})
 }
 
 func (c *chat) renderSubOnly(so dggchat.SubOnly) {
 	tag := fmt.Sprintf(" %s$%s ", bgMagenta, reset)
-	msg := fmt.Sprintf("%s%s%s changed subonly mode to: %t %s", tag, fgMagenta, so.Sender.Nick, so.Active, reset)
-	c.renderFormattedMessage(msg, so.Timestamp)
+	msg := fmt.Sprintf("%s%s changed subonly mode to: %t %s", fgMagenta, so.Sender.Nick, so.Active, reset)
+	c.guiwrapper.addMessage(guimessage{so.Timestamp, tag, msg, ""})
 }
 
 func (c *chat) renderCommand(s string) {
-	tm := time.Unix(time.Now().Unix()/1000, 0)
 	tag := fmt.Sprintf(" %sI%s ", bgWhite, reset)
-	msg := fmt.Sprintf("%s%s%s%s", tag, fgWhite, s, reset)
-	c.renderFormattedMessage(msg, tm)
+	msg := fmt.Sprintf("%s%s%s", fgWhite, s, reset)
+	c.guiwrapper.addMessage(guimessage{time.Now(), tag, msg, ""})
 }
 
 func (c *chat) renderUsers(dggusers []dggchat.User) {
-	c.gui.Update(func(g *gocui.Gui) error {
+	c.guiwrapper.gui.Update(func(g *gocui.Gui) error {
 		userView, err := g.View("users")
 		if err != nil {
 			log.Println(err)
@@ -314,21 +327,6 @@ func (c *chat) renderUsers(dggusers []dggchat.User) {
 	})
 }
 
-func (c *chat) renderFormattedMessage(s string, t time.Time) {
-	c.gui.Update(func(g *gocui.Gui) error {
-		messageView, err := g.View("messages")
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-		formattedDate := t.Format(c.config.Timeformat)
-		m := fmt.Sprintf("[%s]%s", formattedDate, s)
-		fmt.Fprintln(messageView, m)
-		return nil
-	})
-}
-
 func contains(s []string, q string) bool {
 	return indexOf(s, q) > -1
 }
@@ -343,37 +341,41 @@ func indexOf(s []string, e string) int {
 	return -1
 }
 
-func historyUp(g *gocui.Gui, v *gocui.View, chat *chat) error {
-	if chat.historyIndex > maxChatHistory-2 || (chat.historyIndex+1) > len(chat.messageHistory)-1 {
+func (c *chat) historyUp(g *gocui.Gui, v *gocui.View) error {
+	if c.historyIndex > maxChatHistory-2 || (c.historyIndex+1) > len(c.messageHistory)-1 {
 		return nil
 	}
-	chat.historyIndex++
+	c.historyIndex++
 	v.Clear()
 	v.SetCursor(0, 0)
-	v.Write([]byte(chat.messageHistory[chat.historyIndex]))
-	v.MoveCursor(len(chat.messageHistory[chat.historyIndex]), 0, true)
+	v.Write([]byte(c.messageHistory[c.historyIndex]))
+	v.MoveCursor(len(c.messageHistory[c.historyIndex]), 0, true)
 	return nil
 }
 
-func historyDown(g *gocui.Gui, v *gocui.View, chat *chat) error {
-	if chat.historyIndex < 1 {
-		chat.historyIndex = -1
+func (c *chat) historyDown(g *gocui.Gui, v *gocui.View) error {
+	if c.historyIndex < 1 {
+		c.historyIndex = -1
 		v.Clear()
 		v.SetCursor(0, 0)
 		return nil
 	}
 
-	chat.historyIndex--
+	c.historyIndex--
 	v.Clear()
 	v.SetCursor(0, 0)
-	v.Write([]byte(chat.messageHistory[chat.historyIndex]))
-	v.MoveCursor(len(chat.messageHistory[chat.historyIndex]), 0, true)
+	v.Write([]byte(c.messageHistory[c.historyIndex]))
+	v.MoveCursor(len(c.messageHistory[c.historyIndex]), 0, true)
 	return nil
 }
 
 func scroll(dy int, chat *chat, view string) error {
+
+	chat.guiwrapper.Lock()
+	defer chat.guiwrapper.Unlock()
+
 	// Grab the view that we want to scroll.
-	v, _ := chat.gui.View(view)
+	v, _ := chat.guiwrapper.gui.View(view)
 
 	// Get the size and position of the view.
 	_, y := v.Size()
@@ -389,6 +391,7 @@ func scroll(dy int, chat *chat, view string) error {
 	if ty > lines && view == "messages" {
 		// Set autoscroll to normal again.
 		v.Autoscroll = true
+		chat.guiwrapper.redraw() // see comment in redraw()
 		return nil
 	}
 	// Set autoscroll to false and scroll.
