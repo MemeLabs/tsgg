@@ -31,7 +31,7 @@ type chat struct {
 
 func newChat(config *config, g *gocui.Gui) (*chat, error) {
 
-	dgg, err := dggchat.New(config.DGGKey)
+	dgg, err := dggchat.New(";jwt=" + config.DGGKey)
 	if err != nil {
 		return nil, err
 	}

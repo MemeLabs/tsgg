@@ -3,7 +3,7 @@ go:
     - 1.8
     - 1.9
 install:
-    - go get github.com/voloshink/tdgg
+    - go get github.com/memelabs/tsgg
     - go get -v .
     - go get -v github.com/golang/lint/golint
 script:

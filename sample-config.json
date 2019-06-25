@@ -1,6 +1,6 @@
 {
     "dgg_key": "authtoken here",
-    "custom_url": "wss://www.destiny.gg/ws",
+    "custom_url": "wss://chat.strims.gg/ws",
     "username": "pleb",
     "timeformat": "3:04PM",
     "maxlines": 1000,
