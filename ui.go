@@ -327,7 +327,7 @@ func (c *chat) renderCommand(s string) {
 	c.guiwrapper.addMessage(guimessage{time.Now(), tag, msg, ""})
 }
 
-func (c *chat) renderUsers(dggusers []dggchat.User) {
+func (c *chat) renderUsers(users []dggchat.User) {
 	c.guiwrapper.gui.Update(func(g *gocui.Gui) error {
 		userView, err := g.View("users")
 		if err != nil {
@@ -335,20 +335,20 @@ func (c *chat) renderUsers(dggusers []dggchat.User) {
 			return err
 		}
 
-		userView.Title = fmt.Sprintf("%d users:", len(dggusers))
-		c.sortUsers(dggusers)
+		userView.Title = fmt.Sprintf("%d users:", len(users))
+		c.sortUsers(users)
 
-		var users string
-		for _, u := range dggusers {
+		var usersList string
+		for _, u := range users {
 			if c.isTagged(u.Nick) {
-				users += fmt.Sprintf("%s%s%s\n", tagMap[c.config.Tags[strings.ToLower(u.Nick)]], u.Nick, reset)
+				usersList += fmt.Sprintf("%s%s%s\n", tagMap[c.config.Tags[strings.ToLower(u.Nick)]], u.Nick, reset)
 			} else {
-				users += fmt.Sprintf("%s%s\n", u.Nick, reset)
+				usersList += fmt.Sprintf("%s%s\n", u.Nick, reset)
 			}
 		}
 
 		userView.Clear()
-		fmt.Fprintln(userView, users)
+		fmt.Fprintln(userView, usersList)
 		return nil
 	})
 }
