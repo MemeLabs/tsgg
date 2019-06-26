@@ -17,6 +17,5 @@
    "highlight_color":"\u001b[41m",
    "tag_color":"\u001b[41m",
    "highlight_bg_color":"\u001b[47m",
-   "highlight_fg_color":"\u001b[30m",
-   "_comment":"http://www.lihaoyi.com/post/BuildyourownCommandLinewithANSIescapecodes.html#8-colors"
+   "highlight_fg_color":"\u001b[30m"
 }
