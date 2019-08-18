@@ -9,7 +9,7 @@ import (
 const emoteEndpoint = "https://raw.githubusercontent.com/destinygg/chat-gui/master/assets/emotes.json"
 
 type emoteEndpointResponse struct {
-	Destiny []string `json:"destiny"`
+	Default []string `json:"default"`
 	Twitch  []string `json:"twitch"`
 }
 
@@ -33,7 +33,7 @@ func getEmotes() ([]string, error) {
 		return emotes, err
 	}
 
-	emotes = append(emotes, er.Destiny...)
+	emotes = append(emotes, er.Default...)
 	emotes = append(emotes, er.Twitch...)
 	return emotes, nil
 }

@@ -16,7 +16,7 @@ import (
 )
 
 type config struct {
-	DGGKey          string            `toml:"dgg_key"`
+	AuthToken       string            `toml:"auth_token"`
 	CustomURL       string            `toml:"custom_url"`
 	Username        string            `toml:"username"`
 	Timeformat      string            `toml:"timeformat"`
@@ -28,7 +28,10 @@ type config struct {
 	Ignores         []string          `toml:"ignores"`
 	Stalks          []string          `toml:"stalks"`
 	ShowJoinLeave   bool              `toml:"showjoinleave"`
-	LegacyFlairs    bool              `toml:"legacyflairs"`
+	HighlightColor  string            `toml:"highlight_color"`
+	TagColor        string            `toml:"tag_color"`
+	HighlightBg     string            `toml:"highlight_bg_color"`
+	HighlightFg     string            `toml:"highlight_fg_color"`
 	sync.RWMutex
 }
 
@@ -77,6 +80,10 @@ func main() {
 	}
 
 	if err := g.SetKeybinding("", gocui.KeyF12, gocui.ModNone, chat.showDebug); err != nil {
+		log.Panicln(err)
+	}
+
+	if err := g.SetKeybinding("", gocui.KeyF2, gocui.ModNone, chat.showUserList); err != nil {
 		log.Panicln(err)
 	}
 
