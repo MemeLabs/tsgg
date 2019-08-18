@@ -13,6 +13,8 @@ import (
 
 type color string
 
+var userlistShown = true
+
 const (
 	none  color = ""
 	reset color = "\u001b[0m"
@@ -30,7 +32,14 @@ const (
 	bgCyan    color = "\u001b[46m"
 	bgWhite   color = "\u001b[47m"
 
-	// TODO add bright bg colors
+	bgBrightBlack   color = "\u001b[40;1m"
+	bgBrightRed     color = "\u001b[41;1m"
+	bgBrightGreen   color = "\u001b[42;1m"
+	bgBrightYellow  color = "\u001b[43;1m"
+	bgBrightBlue    color = "\u001b[44;1m"
+	bgBrightMagenta color = "\u001b[45;1m"
+	bgBrightCyan    color = "\u001b[46;1m"
+	bgBrightWhite   color = "\u001b[47;1m"
 
 	fgBlack   color = "\u001b[30m"
 	fgRed     color = "\u001b[31m"
@@ -93,7 +102,12 @@ func layout(g *gocui.Gui) error {
 
 	}
 
-	if messages, err := g.SetView("messages", 0, 0, maxX-20, maxY-3); err != nil {
+	var xDimension = maxX - 20
+	if !userlistShown {
+		xDimension = maxX - 1
+	}
+
+	if messages, err := g.SetView("messages", 0, 0, xDimension, maxY-3); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -102,7 +116,7 @@ func layout(g *gocui.Gui) error {
 		messages.Wrap = true
 	}
 
-	if input, err := g.SetView("input", 0, maxY-3, maxX-20, maxY-1); err != nil {
+	if input, err := g.SetView("input", 0, maxY-3, xDimension, maxY-1); err != nil {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
@@ -127,24 +141,33 @@ func layout(g *gocui.Gui) error {
 }
 
 func (c *chat) showHelp(g *gocui.Gui, v *gocui.View) error {
+	c.helpactive = !c.helpactive
 	if !c.helpactive {
-		c.helpactive = !c.helpactive
 		_, err := g.SetViewOnTop("help")
 		return err
 	}
-	c.helpactive = !c.helpactive
 	_, err := g.SetViewOnBottom("help")
 	return err
 }
 
 func (c *chat) showDebug(g *gocui.Gui, v *gocui.View) error {
+	c.debugActive = !c.debugActive
 	if !c.debugActive {
-		c.debugActive = !c.debugActive
 		_, err := g.SetViewOnTop("debug")
 		return err
 	}
-	c.debugActive = !c.debugActive
 	_, err := g.SetViewOnBottom("debug")
+	return err
+}
+
+func (c *chat) showUserList(g *gocui.Gui, v *gocui.View) error {
+	c.userListActive = !c.userListActive
+	userlistShown = !userlistShown
+	if !c.userListActive {
+		_, err := g.SetViewOnTop("users")
+		return err
+	}
+	_, err := g.SetViewOnBottom("users")
 	return err
 }
 
@@ -167,9 +190,18 @@ func (c *chat) renderError(errorString string) {
 	c.guiwrapper.addMessage(guimessage{time.Now(), tag, msg, ""})
 }
 
-func (c *chat) isHighlighted(user string) bool {
+func (c *chat) isHighlighted(message string) bool {
 	for _, highlighted := range c.config.Highlighted {
-		if strings.EqualFold(user, highlighted) {
+		if strings.Contains(strings.ToLower(message), strings.ToLower(highlighted)) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *chat) isTagged(user string) bool {
+	for tag := range c.config.Tags {
+		if strings.EqualFold(strings.ToLower(user), strings.ToLower(tag)) {
 			return true
 		}
 	}
@@ -187,31 +219,22 @@ func (c *chat) renderMessage(m dggchat.Message) {
 
 	var coloredNick string
 
-	for _, flair := range c.flairs {
-		if contains(m.Sender.Features, flair.Name) {
-			taggedNick = fmt.Sprintf("[%s]%s", flair.Badge, taggedNick)
-			coloredNick = fmt.Sprintf("%s%s%s%s", Bold, flair.Color, taggedNick, reset)
-		}
+	if c.isTagged(m.Sender.Nick) {
+		coloredNick = fmt.Sprintf("%s%s %s", tagMap[c.config.Tags[strings.ToLower(m.Sender.Nick)]], taggedNick, reset) //change color of username if they are tagged
 	}
-
-	// for _, highlighted := range c.config.Highlighted {
-	// 	if strings.EqualFold(m.Sender.Nick, highlighted) {
-	// 		taggedNick = fmt.Sprintf("[*]%s", taggedNick)
-	// 		coloredNick = fmt.Sprintf("%s%s %s", fgCyan, taggedNick, reset)
-	// 	}
-	// }
 
 	if coloredNick == "" {
 		coloredNick = fmt.Sprintf("%s%s%s", Bold, taggedNick, reset)
 	}
 
 	formattedData := m.Message
-	if c.username != "" && strings.Contains(strings.ToLower(m.Message), strings.ToLower(c.username)) || c.isHighlighted(m.Sender.Nick) {
-		formattedData = fmt.Sprintf("%s%s%s%s", bgCyan, fgBlack, m.Message, reset)
+	if c.username != "" && strings.Contains(strings.ToLower(m.Message), strings.ToLower(c.username)) || c.isHighlighted(m.Message) {
+		formattedData = fmt.Sprintf("%s%s%s%s", c.config.HighlightBg, c.config.HighlightFg, m.Message, reset) //change message color if you get mentioned or the message contains a highlighed string
 	} else if strings.HasPrefix(m.Message, ">") {
-		formattedData = fmt.Sprintf("%s%s%s", fgGreen, m.Message, reset)
+		formattedData = fmt.Sprintf("%s%s%s", fgGreen, m.Message, reset) //greentext
 	}
 
+	//currently not in use
 	formattedTag := "   "
 	c.config.RLock()
 	if color, ok := c.config.Tags[strings.ToLower(m.Sender.Nick)]; ok {
@@ -304,7 +327,7 @@ func (c *chat) renderCommand(s string) {
 	c.guiwrapper.addMessage(guimessage{time.Now(), tag, msg, ""})
 }
 
-func (c *chat) renderUsers(dggusers []dggchat.User) {
+func (c *chat) renderUsers(users []dggchat.User) {
 	c.guiwrapper.gui.Update(func(g *gocui.Gui) error {
 		userView, err := g.View("users")
 		if err != nil {
@@ -312,17 +335,20 @@ func (c *chat) renderUsers(dggusers []dggchat.User) {
 			return err
 		}
 
-		userView.Title = fmt.Sprintf("%d users:", len(dggusers))
-		c.sortUsers(dggusers)
+		userView.Title = fmt.Sprintf("%d users:", len(users))
+		c.sortUsers(users)
 
-		var users string
-		for _, u := range dggusers {
-			_, flair := c.highestFlair(u)
-			users += fmt.Sprintf("%s%s%s\n", flair.Color, u.Nick, reset)
+		var usersList string
+		for _, u := range users {
+			if c.isTagged(u.Nick) {
+				usersList += fmt.Sprintf("%s%s%s\n", tagMap[c.config.Tags[strings.ToLower(u.Nick)]], u.Nick, reset)
+			} else {
+				usersList += fmt.Sprintf("%s%s\n", u.Nick, reset)
+			}
 		}
 
 		userView.Clear()
-		fmt.Fprintln(userView, users)
+		fmt.Fprintln(userView, usersList)
 		return nil
 	})
 }

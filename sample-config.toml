@@ -1,4 +1,4 @@
-dgg_key = "authtoken here"
+auth_token = "authtoken here"
 custom_url = "wss://chat.strims.gg/ws"
 username = "pleb"
 timeformat = "3:04PM"
@@ -8,6 +8,8 @@ page_up_down_Speed = 20
 highlighted = ["Polecat", "pleb"]
 showjoinleave = false
 legacyflairs = false
+highlight_bg_color = "\u001b[47m"
+highlight_fg_color = "\u001b[30m"
 [tags]
   pleb = "red"
 

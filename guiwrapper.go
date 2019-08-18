@@ -78,6 +78,7 @@ func (gw *guiwrapper) addMessage(m guimessage) {
 	gw.redraw()
 }
 
+//currently not in use
 func (gw *guiwrapper) applyTag(tag string, nick string) {
 
 	gw.Lock()
