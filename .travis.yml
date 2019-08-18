@@ -1,15 +1,23 @@
+dist: xenial
+
 language: go
 go:
-    - 1.8
-    - 1.9
-install:
-    - go get github.com/voloshink/tdgg
-    - go get -v .
-    - go get -v github.com/golang/lint/golint
-script:
-    - diff <(gofmt -d .) <(echo -n)
-    - go vet -x ./...
-    - golint ./...
-    - go test -v -race ./...
+    - 1.11
+    - 1.12
+
+env: GO111MODULE=on GOFLAGS='-mod vendor'
+
+git:
+  depth: 1
+
+install: true
+
 notifications:
   email: false
+
+before_script:
+  - go install github.com/golangci/golangci-lint/cmd/golangci-lint
+
+script:
+  - golangci-lint run
+  - go test -v -race ./...
