@@ -1,7 +1,7 @@
 package main
 
 import (
-	"encoding/json"
+	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -10,41 +10,36 @@ import (
 	"sync"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/jroimartin/gocui"
 	"github.com/voloshink/dggchat"
 )
 
 type config struct {
-	DGGKey          string            `json:"dgg_key"`
-	CustomURL       string            `json:"custom_url"`
-	Username        string            `json:"username"`
-	Timeformat      string            `json:"timeformat"`
-	Maxlines        int               `json:"maxlines"`
-	ScrollingSpeed  int               `json:"scrolling_speed"`
-	PageUpDownSpeed int               `json:"page_up_down_Speed"`
-	Highlighted     []string          `json:"highlighted"`
-	Tags            map[string]string `json:"tags"`
-	Ignores         []string          `json:"ignores"`
-	Stalks          []string          `json:"stalks"`
-	ShowJoinLeave   bool              `json:"showjoinleave"`
-	LegacyFlairs    bool              `json:"legacyflairs"`
+	DGGKey          string            `toml:"dgg_key"`
+	CustomURL       string            `toml:"custom_url"`
+	Username        string            `toml:"username"`
+	Timeformat      string            `toml:"timeformat"`
+	Maxlines        int               `toml:"maxlines"`
+	ScrollingSpeed  int               `toml:"scrolling_speed"`
+	PageUpDownSpeed int               `toml:"page_up_down_Speed"`
+	Highlighted     []string          `toml:"highlighted"`
+	Tags            map[string]string `toml:"tags"`
+	Ignores         []string          `toml:"ignores"`
+	Stalks          []string          `toml:"stalks"`
+	ShowJoinLeave   bool              `toml:"showjoinleave"`
+	LegacyFlairs    bool              `toml:"legacyflairs"`
 	sync.RWMutex
 }
 
 var configFile string
 
 func init() {
-	flag.StringVar(&configFile, "config", "config.json", "location of config file to be used")
+	flag.StringVar(&configFile, "config", "config.toml", "location of config file to be used")
+	flag.Parse()
 }
 
 func main() {
-
-	flag.Parse()
-
-	file, err := ioutil.ReadFile(configFile)
-	if err != nil {
-		log.Fatalln(err)
-	}
 
 	// defaults that won't be set corretly if omitted in config file
 	config := config{
@@ -54,7 +49,7 @@ func main() {
 		PageUpDownSpeed: 10,
 	}
 
-	err = json.Unmarshal(file, &config)
+	_, err := toml.DecodeFile(configFile, &config)
 	if err != nil {
 		log.Fatalf("malformed configuration file: %v\n", err)
 	}
@@ -213,13 +208,13 @@ func quit(g *gocui.Gui, v *gocui.View) error {
 }
 
 func (cfg *config) save() error {
-
-	d, err := json.MarshalIndent(&cfg, "", "\t")
+	buf := bytes.NewBuffer([]byte{})
+	err := toml.NewEncoder(buf).Encode(&cfg)
 	if err != nil {
 		return fmt.Errorf("error marshaling config: %v", err)
 	}
 
-	err = ioutil.WriteFile(configFile, d, 0600)
+	err = ioutil.WriteFile(configFile, buf.Bytes(), 0600)
 	if err != nil {
 		return fmt.Errorf("error saving config: %v", err)
 	}
