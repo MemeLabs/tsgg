@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -32,6 +34,8 @@ type config struct {
 	TagColor        string            `toml:"tag_color"`
 	HighlightBg     string            `toml:"highlight_bg_color"`
 	HighlightFg     string            `toml:"highlight_fg_color"`
+	LoadHistory     bool              `toml:"load_history"`
+	HistoryURL      string            `toml:"history_url"`
 	sync.RWMutex
 }
 
@@ -196,6 +200,64 @@ func main() {
 	chat.Session.AddPingHandler(func(p dggchat.Ping, s *dggchat.Session) {
 		_ = p.Timestamp //TODO
 	})
+
+	if config.LoadHistory {
+		// writing custom load for now, really this should be in
+		// the library itself.
+		// fetch history
+
+		type message struct {
+			Nick      string   `json:"nick"`
+			Features  []string `json:"features"`
+			Timestamp int64    `json:"timestamp"`
+			Data      string   `json:"data"`
+		}
+
+		var received []string
+
+		historyClient := http.Client{
+			Timeout: time.Second * 2,
+		}
+
+		req, err := http.NewRequest(http.MethodGet, config.HistoryURL, nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+		req.Header.Set("User-Agent", "tsgg")
+		res, err := historyClient.Do(req)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		err = json.Unmarshal(body, &received)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for _, x := range received {
+			mslice := strings.SplitN(x, " ", 2)
+			var m message
+			err := json.Unmarshal([]byte(mslice[1]), &m)
+			if err != nil {
+				log.Fatal(err)
+			}
+			user := dggchat.User{
+				Nick:     m.Nick,
+				Features: m.Features,
+			}
+			M := dggchat.Message{
+				Sender:    user,
+				Timestamp: time.Unix(m.Timestamp/1000, 0),
+				Message:   m.Data,
+			}
+			chat.renderMessage(M)
+		}
+	}
 
 	err = chat.Session.Open()
 	if err != nil {
