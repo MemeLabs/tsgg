@@ -10,6 +10,7 @@ showjoinleave = false
 legacyflairs = false
 highlight_bg_color = "\u001b[47m"
 highlight_fg_color = "\u001b[30m"
+load_history = true
+history_url = "https://chat.strims.gg/api/chat/history"
 [tags]
   pleb = "red"
-
