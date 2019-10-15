@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-const emoteEndpoint = "https://raw.githubusercontent.com/destinygg/chat-gui/master/assets/emotes.json"
+const emoteEndpoint = "https://raw.githubusercontent.com/MemeLabs/chat-gui/master/assets/emotes.json"
 
 type emoteEndpointResponse struct {
 	Default []string `json:"default"`
