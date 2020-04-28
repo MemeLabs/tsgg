@@ -85,7 +85,7 @@ func (gw *guiwrapper) applyTag(tag string, nick string) {
 	defer gw.Unlock()
 
 	for _, m := range gw.messages {
-		if m.nick != "" && strings.ToLower(m.nick) == strings.ToLower(nick) {
+		if m.nick != "" && strings.EqualFold(m.nick, nick) {
 			m.tag = tag
 		}
 	}

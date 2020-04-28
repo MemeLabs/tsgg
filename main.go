@@ -229,33 +229,35 @@ func main() {
 			log.Fatal(err)
 		}
 
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		err = json.Unmarshal(body, &received)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		for _, x := range received {
-			mslice := strings.SplitN(x, " ", 2)
-			var m message
-			err := json.Unmarshal([]byte(mslice[1]), &m)
+		if res.StatusCode == 200 {
+			body, err := ioutil.ReadAll(res.Body)
 			if err != nil {
 				log.Fatal(err)
 			}
-			user := dggchat.User{
-				Nick:     m.Nick,
-				Features: m.Features,
+
+			err = json.Unmarshal(body, &received)
+			if err != nil {
+				log.Fatal(err)
 			}
-			M := dggchat.Message{
-				Sender:    user,
-				Timestamp: time.Unix(m.Timestamp/1000, 0),
-				Message:   m.Data,
+
+			for _, x := range received {
+				mslice := strings.SplitN(x, " ", 2)
+				var m message
+				err := json.Unmarshal([]byte(mslice[1]), &m)
+				if err != nil {
+					log.Fatal(err)
+				}
+				user := dggchat.User{
+					Nick:     m.Nick,
+					Features: m.Features,
+				}
+				M := dggchat.Message{
+					Sender:    user,
+					Timestamp: time.Unix(m.Timestamp/1000, 0),
+					Message:   m.Data,
+				}
+				chat.renderMessage(M)
 			}
-			chat.renderMessage(M)
 		}
 	}
 
