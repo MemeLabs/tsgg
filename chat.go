@@ -61,6 +61,7 @@ func newChat(config *config, g *gocui.Gui) (*chat, error) {
 	}
 
 	// don't wait for emotes to load
+
 	go func() {
 		emotes, _ := getEmotes()
 		chat.emotes = emotes
