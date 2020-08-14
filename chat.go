@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jroimartin/gocui"
+	"github.com/awesome-gocui/gocui"
 	"github.com/voloshink/dggchat"
 )
 
