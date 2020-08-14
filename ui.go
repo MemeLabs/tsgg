@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jroimartin/gocui"
+	"github.com/awesome-gocui/gocui"
 	"github.com/voloshink/dggchat"
 )
 
@@ -64,8 +64,8 @@ func layout(g *gocui.Gui) error {
 	maxX, maxY := g.Size()
 	g.Cursor = true
 
-	if messages, err := g.SetView("debug", maxX/4*2, 0, maxX-20, maxY/3); err != nil {
-		if err != gocui.ErrUnknownView {
+	if messages, err := g.SetView("debug", int(maxX/4*2), 0, maxX-20, maxY/3, 0); err != nil {
+		if !gocui.IsUnknownView(err) {
 			return err
 		}
 		messages.Title = " debug: "
@@ -73,8 +73,8 @@ func layout(g *gocui.Gui) error {
 		messages.Autoscroll = true
 	}
 
-	if messages, err := g.SetView("help", maxX/4*2, 0, maxX-20, maxY/2); err != nil {
-		if err != gocui.ErrUnknownView {
+	if messages, err := g.SetView("help", maxX/4*2, 0, maxX-20, maxY/2, 0); err != nil {
+		if !gocui.IsUnknownView(err) {
 			return err
 		}
 		messages.Title = " help: "
@@ -107,8 +107,8 @@ func layout(g *gocui.Gui) error {
 		xDimension = maxX - 1
 	}
 
-	if messages, err := g.SetView("messages", 0, 0, xDimension, maxY-3); err != nil {
-		if err != gocui.ErrUnknownView {
+	if messages, err := g.SetView("messages", 0, 0, xDimension, maxY-3, 0); err != nil {
+		if !gocui.IsUnknownView(err) {
 			return err
 		}
 		messages.Title = " messages: "
@@ -116,8 +116,8 @@ func layout(g *gocui.Gui) error {
 		messages.Wrap = true
 	}
 
-	if input, err := g.SetView("input", 0, maxY-3, xDimension, maxY-1); err != nil {
-		if err != gocui.ErrUnknownView {
+	if input, err := g.SetView("input", 0, maxY-3, xDimension, maxY-1, 0); err != nil {
+		if !gocui.IsUnknownView(err) {
 			return err
 		}
 		input.Title = " send: "
@@ -128,8 +128,8 @@ func layout(g *gocui.Gui) error {
 		g.SetCurrentView("input")
 	}
 
-	if users, err := g.SetView("users", maxX-20, 0, maxX-1, maxY-1); err != nil {
-		if err != gocui.ErrUnknownView {
+	if users, err := g.SetView("users", maxX-20, 0, maxX-1, maxY-1, 0); err != nil {
+		if !gocui.IsUnknownView(err) {
 			return err
 		}
 		users.Title = " users: "
