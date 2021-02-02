@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/MemeLabs/dggchat"
 	"github.com/awesome-gocui/gocui"
-	"github.com/voloshink/dggchat"
 )
 
 type config struct {
@@ -47,7 +47,6 @@ func init() {
 }
 
 func main() {
-
 	// defaults that won't be set corretly if omitted in config file
 	config := config{
 		Timeformat:      time.Kitchen,
@@ -125,7 +124,6 @@ func main() {
 	chat.mustAddScroll("debug", 1, gocui.MouseWheelUp, gocui.MouseWheelDown)
 
 	err = g.SetKeybinding("input", gocui.KeyEnter, gocui.ModNone, func(g *gocui.Gui, v *gocui.View) error {
-
 		if v.Buffer() == "" {
 			return nil
 		}
@@ -198,7 +196,7 @@ func main() {
 		chat.renderPrivateMessage(pm)
 	})
 	chat.Session.AddPingHandler(func(p dggchat.Ping, s *dggchat.Session) {
-		_ = p.Timestamp //TODO
+		_ = p.Timestamp // TODO
 	})
 
 	if config.LoadHistory {
@@ -271,7 +269,6 @@ func main() {
 	if err := g.MainLoop(); err != nil && err != gocui.ErrQuit {
 		log.Panicln(err)
 	}
-
 }
 
 func quit(g *gocui.Gui, v *gocui.View) error {

@@ -64,7 +64,7 @@ func (c *chat) handleCommand(message string) error {
 
 func addHighlight(c *chat, tokens []string) error {
 	if len(tokens) < 2 {
-		return errors.New("Usage: /highlight user")
+		return errors.New("usage: /highlight user")
 	}
 
 	user := strings.ToLower(tokens[1])
@@ -87,7 +87,7 @@ func addHighlight(c *chat, tokens []string) error {
 
 func removeHighlight(c *chat, tokens []string) error {
 	if len(tokens) < 2 {
-		return errors.New("Usage: /unhighlight user")
+		return errors.New("usage: /unhighlight user")
 	}
 
 	user := strings.ToLower(tokens[1])
@@ -112,12 +112,12 @@ func removeHighlight(c *chat, tokens []string) error {
 
 func addStalk(c *chat, tokens []string) error {
 	if len(tokens) < 2 {
-		return errors.New("Usage: /stalk user")
+		return errors.New("usage: /stalk user")
 	}
 
 	user := strings.ToLower(tokens[1])
 	if contains(c.config.Stalks, user) {
-		return fmt.Errorf("Already stalking %s", user)
+		return fmt.Errorf("already stalking %s", user)
 	}
 
 	c.config.Lock()
@@ -135,7 +135,7 @@ func addStalk(c *chat, tokens []string) error {
 
 func removeStalk(c *chat, tokens []string) error {
 	if len(tokens) < 2 {
-		return errors.New("Usage: /unstalk user")
+		return errors.New("usage: /unstalk user")
 	}
 
 	user := strings.ToLower(tokens[1])
@@ -160,7 +160,7 @@ func removeStalk(c *chat, tokens []string) error {
 
 func addTag(c *chat, tokens []string) error {
 	if len(tokens) < 3 {
-		return errors.New("Usage: /tag user [Black, Red, Green, Yellow, Blue, Magenta, Cyan, White]")
+		return errors.New("usage: /tag user [Black, Red, Green, Yellow, Blue, Magenta, Cyan, White]")
 	}
 
 	color := strings.ToLower(tokens[2])
@@ -192,7 +192,7 @@ func addTag(c *chat, tokens []string) error {
 
 func removeTag(c *chat, tokens []string) error {
 	if len(tokens) != 2 {
-		return errors.New("Usage: /untag user")
+		return errors.New("usage: /untag user")
 	}
 
 	user := strings.ToLower(tokens[1])
@@ -218,11 +218,11 @@ func removeTag(c *chat, tokens []string) error {
 
 func sendMute(c *chat, tokens []string) error {
 	if len(tokens) < 2 || len(tokens) > 3 {
-		return errors.New("Usage: /mute user [time in seconds]")
+		return errors.New("usage: /mute user [time in seconds]")
 	}
 
 	var err error
-	var duration int64 //server chooses default duration
+	var duration int64 // server chooses default duration
 
 	if len(tokens) >= 3 {
 		duration, err = strconv.ParseInt(strings.TrimSpace(tokens[2]), 10, 64)
@@ -236,7 +236,7 @@ func sendMute(c *chat, tokens []string) error {
 
 func sendUnmute(c *chat, tokens []string) error {
 	if len(tokens) != 2 {
-		return errors.New("Usage: /unmute user")
+		return errors.New("usage: /unmute user")
 	}
 
 	return c.Session.SendUnmute(tokens[1])
@@ -244,11 +244,11 @@ func sendUnmute(c *chat, tokens []string) error {
 
 func sendBan(c *chat, tokens []string) error {
 	if len(tokens) < 3 || len(tokens) > 4 {
-		return errors.New("Usage: /[ip]ban user reason [time (in seconds)]")
+		return errors.New("usage: /[ip]ban user reason [time (in seconds)]")
 	}
 
 	var err error
-	var duration int64 //server chooses default duration
+	var duration int64 // server chooses default duration
 	banip := tokens[0] == "/ipban"
 
 	if len(tokens) == 4 {
@@ -263,7 +263,7 @@ func sendBan(c *chat, tokens []string) error {
 
 func sendUnban(c *chat, tokens []string) error {
 	if len(tokens) != 2 {
-		return errors.New("Usage: /unban user")
+		return errors.New("usage: /unban user")
 	}
 
 	return c.Session.SendUnban(tokens[1])
@@ -271,7 +271,7 @@ func sendUnban(c *chat, tokens []string) error {
 
 func sendPermBan(c *chat, tokens []string) error {
 	if len(tokens) != 3 {
-		return errors.New("Usage: /perm[ip] user reason")
+		return errors.New("usage: /perm[ip] user reason")
 	}
 	banip := tokens[0] == "/permip"
 	return c.Session.SendPermanentBan(tokens[1], tokens[2], banip)
@@ -280,7 +280,7 @@ func sendPermBan(c *chat, tokens []string) error {
 func sendSubOnly(c *chat, tokens []string) error {
 	so := tokens[1]
 	if len(tokens) != 2 || (so != "on" && so != "off") {
-		return errors.New("Usage: /subonly {on,off}")
+		return errors.New("usage: /subonly {on,off}")
 	}
 
 	subonly := so == "on"
@@ -289,7 +289,7 @@ func sendSubOnly(c *chat, tokens []string) error {
 
 func sendAction(c *chat, tokens []string) error {
 	if len(tokens) < 2 {
-		return errors.New("Usage: /me message")
+		return errors.New("usage: /me message")
 	}
 	message := strings.Join(tokens[1:], " ")
 	return c.Session.SendAction(message)
@@ -297,7 +297,7 @@ func sendAction(c *chat, tokens []string) error {
 
 func sendBroadcast(c *chat, tokens []string) error {
 	if len(tokens) < 2 {
-		return errors.New("Usage: /broadcast message")
+		return errors.New("usage: /broadcast message")
 	}
 
 	message := strings.Join(tokens[1:], " ")
@@ -306,7 +306,7 @@ func sendBroadcast(c *chat, tokens []string) error {
 
 func sendWhisper(c *chat, tokens []string) error {
 	if len(tokens) < 3 {
-		return errors.New("Usage: /w user message")
+		return errors.New("usage: /w user message")
 	}
 
 	nick := tokens[1]
@@ -318,7 +318,7 @@ func sendWhisper(c *chat, tokens []string) error {
 
 func addIgnore(c *chat, tokens []string) error {
 	if len(tokens) > 2 {
-		return errors.New("Usage: /ignore user")
+		return errors.New("usage: /ignore user")
 	}
 
 	c.config.Lock()
@@ -346,7 +346,7 @@ func addIgnore(c *chat, tokens []string) error {
 
 func removeIgnore(c *chat, tokens []string) error {
 	if len(tokens) != 2 {
-		return errors.New("Usage: /unignore user")
+		return errors.New("usage: /unignore user")
 	}
 	user := strings.ToLower(tokens[1])
 

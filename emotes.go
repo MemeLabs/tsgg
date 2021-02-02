@@ -10,7 +10,6 @@ const emoteEndpoint = "https://raw.githubusercontent.com/MemeLabs/chat-gui/maste
 
 type emoteEndpointResponse struct {
 	Default []string `json:"default"`
-	Twitch  []string `json:"twitch"`
 }
 
 func getEmotes() ([]string, error) {
@@ -23,7 +22,7 @@ func getEmotes() ([]string, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return emotes, fmt.Errorf("Emote endpoint status code %d", resp.StatusCode)
+		return emotes, fmt.Errorf("emote endpoint status code %d", resp.StatusCode)
 	}
 
 	var er emoteEndpointResponse
@@ -34,6 +33,5 @@ func getEmotes() ([]string, error) {
 	}
 
 	emotes = append(emotes, er.Default...)
-	emotes = append(emotes, er.Twitch...)
 	return emotes, nil
 }

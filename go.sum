@@ -1,5 +1,7 @@
 github.com/BurntSushi/toml v0.3.1 h1:WXkYYl6Yr3qBf1K79EBnL4mak0OimBfB0XUf9Vl28OQ=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
+github.com/MemeLabs/dggchat v0.0.0-20201117114323-43344edb4906 h1:srAWLSWDRcP9tdN2MgszP1ENb3VUPBWAFYtF+Jb1jPY=
+github.com/MemeLabs/dggchat v0.0.0-20201117114323-43344edb4906/go.mod h1:r7pnEgdWZ0QU6R0wMHxbPoEsv1xe8vJ7lCM2mfPj/cs=
 github.com/awesome-gocui/gocui v0.6.0 h1:hhDJiQC12tEsJNJ+iZBBVaSSLFYo9llFuYpQlL5JZVI=
 github.com/awesome-gocui/gocui v0.6.0/go.mod h1:1QikxFaPhe2frKeKvEwZEIGia3haiOxOUXKinrv17mA=
 github.com/awesome-gocui/termbox-go v0.0.0-20190427202837-c0aef3d18bcc h1:wGNpKcHU8Aadr9yOzsT3GEsFLS7HQu8HxQIomnekqf0=
@@ -10,5 +12,3 @@ github.com/gorilla/websocket v1.4.2 h1:+/TMaTYc4QFitKJxsQ7Yye35DkWvkdLcvGKqM+x0U
 github.com/gorilla/websocket v1.4.2/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
 github.com/mattn/go-runewidth v0.0.4 h1:2BvfKmzob6Bmd4YsL0zygOqfdFnK7GR4QL06Do4/p7Y=
 github.com/mattn/go-runewidth v0.0.4/go.mod h1:LwmH8dsx7+W8Uxz3IHJYH5QSwggIsqBzpuz5H//U1FU=
-github.com/voloshink/dggchat v0.0.0-20171209033102-97642b4d160e h1:qszPE5tSNvsYJErKxKdECVtODU9fzi/F37qFjwR1jRU=
-github.com/voloshink/dggchat v0.0.0-20171209033102-97642b4d160e/go.mod h1:5j1ON0lAci8VnW4dkkgsmJcO/wWrzhonglKAxV5FHXA=

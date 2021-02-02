@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/MemeLabs/dggchat"
 	"github.com/awesome-gocui/gocui"
-	"github.com/voloshink/dggchat"
 )
 
 const maxChatHistory = 10
@@ -30,7 +30,6 @@ type chat struct {
 }
 
 func newChat(config *config, g *gocui.Gui) (*chat, error) {
-
 	sgg, err := dggchat.New(";jwt=" + config.AuthToken)
 	if err != nil {
 		return nil, err
@@ -71,7 +70,6 @@ func newChat(config *config, g *gocui.Gui) (*chat, error) {
 }
 
 func (c *chat) handleInput(message string) {
-
 	var err error
 
 	// ability to send messages starting with "/"
@@ -178,7 +176,6 @@ func (c *chat) tabComplete(v *gocui.View) {
 }
 
 func (c *chat) generateSuggestions(s string) []string {
-
 	users := c.Session.GetUsers()
 	suggestions := make([]string, 0)
 

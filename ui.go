@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MemeLabs/dggchat"
 	"github.com/awesome-gocui/gocui"
-	"github.com/voloshink/dggchat"
 )
 
 type color string
@@ -102,7 +102,7 @@ func layout(g *gocui.Gui) error {
 
 	}
 
-	var xDimension = maxX - 20
+	xDimension := maxX - 20
 	if !userlistShown {
 		xDimension = maxX - 1
 	}
@@ -209,7 +209,6 @@ func (c *chat) isTagged(user string) bool {
 }
 
 func (c *chat) renderMessage(m dggchat.Message) {
-
 	taggedNick := m.Sender.Nick
 
 	// don't show ignored users
@@ -220,7 +219,7 @@ func (c *chat) renderMessage(m dggchat.Message) {
 	var coloredNick string
 
 	if c.isTagged(m.Sender.Nick) {
-		coloredNick = fmt.Sprintf("%s%s %s", tagMap[c.config.Tags[strings.ToLower(m.Sender.Nick)]], taggedNick, reset) //change color of username if they are tagged
+		coloredNick = fmt.Sprintf("%s%s %s", tagMap[c.config.Tags[strings.ToLower(m.Sender.Nick)]], taggedNick, reset) // change color of username if they are tagged
 	}
 
 	if coloredNick == "" {
@@ -229,12 +228,12 @@ func (c *chat) renderMessage(m dggchat.Message) {
 
 	formattedData := m.Message
 	if c.username != "" && strings.Contains(strings.ToLower(m.Message), strings.ToLower(c.username)) || c.isHighlighted(m.Message) {
-		formattedData = fmt.Sprintf("%s%s%s%s", c.config.HighlightBg, c.config.HighlightFg, m.Message, reset) //change message color if you get mentioned or the message contains a highlighed string
+		formattedData = fmt.Sprintf("%s%s%s%s", c.config.HighlightBg, c.config.HighlightFg, m.Message, reset) // change message color if you get mentioned or the message contains a highlighed string
 	} else if strings.HasPrefix(m.Message, ">") {
-		formattedData = fmt.Sprintf("%s%s%s", fgGreen, m.Message, reset) //greentext
+		formattedData = fmt.Sprintf("%s%s%s", fgGreen, m.Message, reset) // greentext
 	}
 
-	//currently not in use
+	// currently not in use
 	formattedTag := "   "
 	c.config.RLock()
 	if color, ok := c.config.Tags[strings.ToLower(m.Sender.Nick)]; ok {
@@ -396,7 +395,6 @@ func (c *chat) historyDown(g *gocui.Gui, v *gocui.View) error {
 }
 
 func scroll(dy int, chat *chat, view string) error {
-
 	chat.guiwrapper.Lock()
 	defer chat.guiwrapper.Unlock()
 
